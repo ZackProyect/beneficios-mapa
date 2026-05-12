@@ -802,7 +802,7 @@ function fetchSucursalesOSM(brandName, bounds) {
   if (sucCache[ck]) return Promise.resolve(sucCache[ck]);
   const biasLat = bounds?(bounds.north+bounds.south)/2:-33.45;
   const biasLng = bounds?(bounds.east+bounds.west)/2:-70.65;
-  const url = `https://photon.komoot.io/api?q=${encodeURIComponent(brandName)}&lat=${biasLat}&lon=${biasLng}&limit=100&osm_tag=amenity&osm_tag=shop&osm_tag=fuel`;
+  const url = `https://photon.komoot.io/api?q=${encodeURIComponent(brandName)}&lat=${biasLat}&lon=${biasLng}&limit=100&bbox=-75.7,-55.9,-66.0,-17.5&osm_tag=amenity&osm_tag=shop&osm_tag=fuel`;
   return fetch(url).then(r=>r.json()).then(data=>{
     const seen={},locs=[],bLow=brandName.toLowerCase(),firstWord=bLow.split(' ')[0];
     const fb = bounds
@@ -842,10 +842,17 @@ function fetchSucursalesNominatim(brandName, bounds) {
   }).catch(()=>[]);
 }
 
+const CHILE_BOUNDS = {n:-17.5,s:-55.9,w:-75.7,e:-66.0};
+function inChile(lat,lng){ return lat>=CHILE_BOUNDS.s&&lat<=CHILE_BOUNDS.n&&lng>=CHILE_BOUNDS.w&&lng<=CHILE_BOUNDS.e; }
+
 function mergeSucursales(ben, locs) {
   const ex={};
   ben.sucursales.forEach(s=>{ex[s.lat.toFixed(4)+','+s.lng.toFixed(4)]=1;});
-  locs.forEach(s=>{const k=s.lat.toFixed(4)+','+s.lng.toFixed(4);if(!ex[k]){ben.sucursales.push(s);ex[k]=1;}});
+  locs.forEach(s=>{
+    if(!inChile(s.lat,s.lng)) return;
+    const k=s.lat.toFixed(4)+','+s.lng.toFixed(4);
+    if(!ex[k]){ben.sucursales.push(s);ex[k]=1;}
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
