@@ -37,7 +37,8 @@
     }
     .bs-title{color:#fff;font-size:22px;font-weight:800;text-align:center;line-height:1.3}
     .bs-subtitle{color:rgba(255,255,255,.6);font-size:13px;text-align:center;margin-top:-20px}
-    .bs-cards{display:flex;gap:16px;width:100%;max-width:500px}
+    .bs-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:380px}
+    .bs-card:nth-child(3){grid-column:1/-1;max-width:160px;justify-self:center}
     .bs-card{
       flex:1;background:#fff;border-radius:18px;padding:28px 16px 22px;
       cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:14px;
@@ -48,6 +49,8 @@
     .bs-card:active{transform:scale(.97)}
     .bs-card.bci{border-color:#003DA5}
     .bs-card.santander{border-color:#EC0000}
+    .bs-card.bancochile{border-color:#CC0000}
+    .bs-logo.bancochile{background:linear-gradient(135deg,#880000,#CC0000)}
     .bs-logo{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center}
     .bs-logo.bci{background:linear-gradient(135deg,#001F5C,#003DA5)}
     .bs-logo.santander{background:linear-gradient(135deg,#8B0000,#EC0000)}
@@ -308,6 +311,14 @@
       <div class="bs-bank-desc">Promociones y beneficios Santander Chile</div>
     </div>
 
+    <div class="bs-card bancochile" onclick="selectBank('bancochile')">
+      <div class="bs-logo bancochile">
+        <span class="bs-logo-text">BCH</span>
+      </div>
+      <div class="bs-bank-name">Banco de Chile</div>
+      <div class="bs-bank-desc">Descuentos con tarjetas Visa del Chile</div>
+    </div>
+
   </div>
 </div>
 
@@ -457,6 +468,18 @@ const BANK_CONFIGS = {
     apiHeaders:   {},
     fetchAll:     fetchSantander,
     logoHtml:     'Santander <span class="accent">Beneficios</span>'
+  },
+  bancochile: {
+    name: 'Banco de Chile',
+    fullName: 'Banco de Chile',
+    emoji: '🏦',
+    primary:      '#CC0000',
+    primaryDark:  '#880000',
+    primaryLight: '#FFF0F0',
+    badgeDcto:    '#FF6B00',
+    apiHeaders:   {},
+    fetchAll:     fetchBancoChile,
+    logoHtml:     'Banco de <span class="accent">Chile</span>'
   }
 };
 
@@ -621,6 +644,90 @@ function mapSantanderOffer(p) {
     imagen: (p.covers||[])[0]||null,
     link: cf['Sitio web beneficio']?.value || p.url || null,
     sucursales
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADAPTADOR BANCO DE CHILE
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchBancoChile(onProgress) {
+  const BASE = 'https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types/beneficios/entries';
+  onProgress(0.1, 'Cargando página 1...');
+  const first = await fetch(`${BASE}?page=1&per_page=100`).then(r => {
+    if (!r.ok) throw new Error(`BancoChile API: HTTP ${r.status}`);
+    return r.json();
+  });
+  const totalPages = first.meta?.total_pages || Math.ceil((first.meta?.total_entries||100) / 100) || 1;
+  let all = (first.entries||[]).map(mapBancoChileOffer);
+  if (totalPages > 1) {
+    const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
+    const results = await Promise.all(pages.map(p =>
+      fetch(`${BASE}?page=${p}&per_page=100`)
+        .then(r => r.json())
+        .then(d => { onProgress(p/totalPages, `Página ${p} de ${totalPages}`); return (d.entries||[]).map(mapBancoChileOffer); })
+    ));
+    results.forEach(r => { all = all.concat(r); });
+  }
+  return all;
+}
+
+const BCH_CAT_MAP = {
+  'sabores':'Restaurantes','descuentos':'Descuentos','viajes':'Viajes',
+  'entretenimiento':'Entretenimiento','salud':'Salud','retail':'Retail',
+  'tecnologia':'Tecnología','servicios':'Servicios','otros':'Otros'
+};
+const BCH_DAY_MAP = {
+  'todos-los-dias':'Todos los días','lunes':'Lunes','martes':'Martes',
+  'miercoles':'Miércoles','jueves':'Jueves','viernes':'Viernes',
+  'sabado':'Sábado','domingo':'Domingo'
+};
+
+function parseSucursalesBCH(html) {
+  if (!html) return [];
+  const matches = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+  return matches.map(li => {
+    const text = li.replace(/<[^>]+>/g,'').trim();
+    const parts = text.split(';').map(p => p.trim());
+    const street = parts[1] || '';
+    const city   = parts[3] || '';
+    if (!street || street.toUpperCase() === 'VACIO' || street.length < 3) return null;
+    return { street, city };
+  }).filter(Boolean);
+}
+
+function mapBancoChileOffer(o) {
+  const f = o.fields, m = o.meta;
+  const catParts = (m.category||'').split('/');
+  const catKey   = catParts[1] || '';
+  const categoria = BCH_CAT_MAP[catKey] || catKey.replace(/-/g,' ') || 'Beneficio';
+
+  const days = Object.keys(BCH_DAY_MAP);
+  const dias = (m.tags||[]).filter(t => days.includes(t)).map(t => BCH_DAY_MAP[t]);
+  const recurrenceLabel = dias.includes('Todos los días') ? 'Todos los días' : '';
+
+  const tipoBeneficio = (f['Tipo Beneficio']||'').trim();
+  const pctMatch = tipoBeneficio.match(/(\d+)\s*%/);
+  const descuento = pctMatch ? pctMatch[0].replace(/\s/g,'') : tipoBeneficio.split(';')[0].trim();
+  const tipo = pctMatch ? 'DISCOUNT' : 'BENEFIT';
+
+  const sitioWeb = (f['Url']||f['Sitio web']||f['Url Beneficio Externa']||'').trim();
+  const rawAddresses = parseSucursalesBCH(f['Sucursales']||'');
+  const isOnline = sitioWeb.length > 3 && rawAddresses.length === 0;
+  const modalidad = isOnline ? 'Online' : 'Presencial';
+
+  const descripcion = f['Extracto'] || stripHtml(f['Descripcion']||'').substring(0,140);
+  const vigencia = f['Vigencia'] ? f['Vigencia'].replace(/Promoción válida\s*/i,'') : null;
+
+  return {
+    id: m.uuid, brand_name: f['Titulo']||m.name,
+    nombre: f['Titulo']||m.name, subtitulo: descripcion,
+    icono: getCategoryEmoji(categoria),
+    categoria, categorias: [categoria], tagNames: m.tags||[], descuento,
+    tipo, descripcion, dias, recurrenceLabel, modalidad, vigencia,
+    imagen: f['Portada']?.url || null,
+    logo:   f['Logo']?.url || f['Logo']?.thumb || null,
+    link: sitioWeb || null,
+    sucursales: [], rawAddresses
   };
 }
 
@@ -1120,14 +1227,36 @@ async function initApp() {
 
     render();
 
-    // Geocodificación en background (una llamada por marca única)
+    // Geocodificación en background
     const seen={};
+    let bchDelay = 0;
     beneficios.forEach(b=>{
-      if(!b.brand_name||seen[b.brand_name]) return; seen[b.brand_name]=1;
-      fetchSucursalesOSM(b.brand_name).then(locs=>{
-        beneficios.filter(x=>x.brand_name===b.brand_name).forEach(ben=>mergeSucursales(ben,locs));
-        render();
-      });
+      if (b.rawAddresses?.length) {
+        // Banco de Chile: geocodificar por dirección exacta con rate-limit de 1 req/s
+        b.rawAddresses.forEach(addr => {
+          const ck = `bch:${addr.street}:${addr.city}`.toLowerCase();
+          if (sucCache[ck]) { mergeSucursales(b,[sucCache[ck]]); return; }
+          bchDelay += 1100;
+          setTimeout(() => {
+            const q = `${addr.street}, ${addr.city}, Chile`;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cl&q=${encodeURIComponent(q)}`)
+              .then(r=>r.json()).then(res=>{
+                if (!res.length) return;
+                const loc = {lat:+res[0].lat, lng:+res[0].lon, nombre:b.nombre, direccion:`${addr.street}, ${addr.city}`};
+                if (!inChile(loc.lat,loc.lng)) return;
+                sucCache[ck]=loc; saveCache(activeBank?.name||'x');
+                mergeSucursales(b,[loc]); render();
+              }).catch(()=>{});
+          }, bchDelay);
+        });
+      } else {
+        // BCI / Santander: geocodificar por nombre de marca
+        if(!b.brand_name||seen[b.brand_name]) return; seen[b.brand_name]=1;
+        fetchSucursalesOSM(b.brand_name).then(locs=>{
+          beneficios.filter(x=>x.brand_name===b.brand_name).forEach(ben=>mergeSucursales(ben,locs));
+          render();
+        });
+      }
     });
 
   } catch(err) {
