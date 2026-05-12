@@ -239,15 +239,29 @@
     .marker-circle img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
     .marker-fallback{font-family:'Nunito',sans-serif;font-size:8px;font-weight:800;color:var(--primary);text-align:center;line-height:1.1}
 
-    /* ── POPUP ──────────────────────────────────────────────────────────────── */
-    .leaflet-popup-content-wrapper{border-radius:12px;padding:5px}
-    .leaflet-popup-content{font-family:'Nunito',sans-serif;min-width:180px;text-align:center}
-    .popup-title{font-size:14px;font-weight:700;margin-bottom:2px}
-    .popup-tipo{font-size:11px;color:#666;margin-bottom:4px}
-    .popup-desc{font-size:11px;color:#666;margin-bottom:6px;line-height:1.3}
-    .promo-tag{background:var(--primary);color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;display:inline-block;margin:3px 2px;font-size:12px}
-    .popup-tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:4px}
-    .popup-tag{padding:2px 5px;border-radius:4px;font-size:9px;font-weight:600}
+    /* ── PANEL MARCADOR ─────────────────────────────────────────────────────── */
+    #markerPanel{
+      position:fixed;bottom:0;left:0;right:0;z-index:2500;
+      background:#fff;border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,.18);
+      padding:16px 16px 32px;
+      transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+      max-height:65vh;overflow-y:auto
+    }
+    #markerPanel.open{transform:translateY(0)}
+    .mp-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+    .mp-logo{width:52px;height:52px;border-radius:10px;object-fit:contain;border:1px solid #eee;flex-shrink:0}
+    .mp-logo-fallback{width:52px;height:52px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .mp-info{flex:1;min-width:0}
+    .mp-name{font-size:15px;font-weight:800;color:#111;line-height:1.2}
+    .mp-cat{font-size:11px;color:#888;margin-top:2px}
+    .mp-addr{font-size:11px;color:#666;margin-top:3px}
+    .mp-close{width:32px;height:32px;border-radius:50%;background:#f0f0f0;border:none;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#555}
+    .mp-badge{background:var(--primary);color:#fff;padding:5px 12px;border-radius:8px;font-weight:800;font-size:13px;display:inline-block;margin:6px 0}
+    .mp-desc{font-size:12px;color:#555;line-height:1.5;margin-top:6px}
+    .mp-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+    .mp-tag{padding:3px 7px;border-radius:5px;font-size:10px;font-weight:600}
+    .mp-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 14px}
 
     /* ── UBICACIÓN USUARIO ──────────────────────────────────────────────────── */
     .user-location{position:relative;display:flex;flex-direction:column;align-items:center}
@@ -362,6 +376,23 @@
 
 <!-- ── MAPA ─────────────────────────────────────────────────────────────────── -->
 <div id="map"></div>
+
+<!-- ── PANEL MARCADOR ────────────────────────────────────────────────────────── -->
+<div id="markerPanel">
+  <div class="mp-handle"></div>
+  <div class="mp-header">
+    <div id="mpLogoWrap"></div>
+    <div class="mp-info">
+      <div class="mp-name" id="mpName"></div>
+      <div class="mp-cat" id="mpCat"></div>
+      <div class="mp-addr" id="mpAddr"></div>
+    </div>
+    <button class="mp-close" onclick="closeMarkerPanel()">✕</button>
+  </div>
+  <div id="mpBadge"></div>
+  <div class="mp-desc" id="mpDesc"></div>
+  <div class="mp-tags" id="mpTags"></div>
+</div>
 
 <!-- ── BOTÓN MI UBICACIÓN ───────────────────────────────────────────────────── -->
 <button id="btnMyLocation" onclick="requestMyLocation()" title="Mi ubicación">
@@ -788,6 +819,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { 
 L.control.zoom({ position:'bottomleft' }).addTo(map);
 markerCluster = L.markerClusterGroup({ maxClusterRadius:40 });
 map.addLayer(markerCluster);
+map.on('click', closeMarkerPanel);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GEOLOCALIZACIÓN Y DISTANCIA
@@ -870,6 +902,33 @@ if (navigator.geolocation) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ICONO MARCADOR
+// ══════════════════════════════════════════════════════════════════════════════
+// PANEL MARCADOR
+// ══════════════════════════════════════════════════════════════════════════════
+function showMarkerPanel(b, s) {
+  const logoWrap = document.getElementById('mpLogoWrap');
+  if (b.logo || b.imagen) {
+    logoWrap.innerHTML = `<img class="mp-logo" src="${escAttr(b.logo||b.imagen)}" alt="" onerror="this.parentNode.innerHTML='<div class=mp-logo-fallback>${b.icono}</div>'">`;
+  } else {
+    logoWrap.innerHTML = `<div class="mp-logo-fallback">${b.icono}</div>`;
+  }
+  document.getElementById('mpName').textContent = s.nombre || b.nombre;
+  document.getElementById('mpCat').textContent = b.categoria;
+  document.getElementById('mpAddr').textContent = s.direccion || '';
+  document.getElementById('mpBadge').innerHTML = `<span class="mp-badge">${escAttr(b.descuento)} ${getBadgeLabel(b.tipo)}</span>`;
+  document.getElementById('mpDesc').textContent = b.descripcion;
+  const tags = [
+    ...b.dias.map(d=>`<span class="mp-tag" style="background:#E8F5E9;color:#2E7D32">${escAttr(d)}</span>`),
+    b.vigencia ? `<span class="mp-tag" style="background:#FFF3E0;color:#E65100">${escAttr(b.vigencia)}</span>` : '',
+    `<span class="mp-tag" style="background:#E3F2FD;color:#1565C0">${escAttr(b.modalidad)}</span>`
+  ].filter(Boolean).join('');
+  document.getElementById('mpTags').innerHTML = tags;
+  document.getElementById('markerPanel').classList.add('open');
+}
+function closeMarkerPanel() {
+  document.getElementById('markerPanel').classList.remove('open');
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 function createIcon(b) {
   const safe = escAttr(b.nombre.substring(0,14));
@@ -1159,17 +1218,10 @@ function render() {
     b.sucursales.forEach(s=>{
       if(!s.lat||!s.lng) return;
       const marker=L.marker([s.lat,s.lng],{icon:createIcon(b)});
-      marker.bindPopup(`
-        <div class="popup-title">${escAttr(s.nombre||b.nombre)}</div>
-        <div class="popup-tipo">${escAttr(b.categoria)}</div>
-        ${s.direccion?`<div style="font-size:11px;color:#999;margin-bottom:6px">${escAttr(s.direccion)}</div>`:''}
-        <div class="promo-tag">${escAttr(b.descuento)} ${getBadgeLabel(b.tipo)}</div>
-        <div class="popup-desc">${escAttr(b.descripcion)}</div>
-        <div class="popup-tags">
-          ${b.dias.map(d=>`<span class="popup-tag" style="background:#E8F5E9;color:#2E7D32">${escAttr(d)}</span>`).join('')}
-          <span class="popup-tag" style="background:#E3F2FD;color:#1565C0">${escAttr(b.modalidad)}</span>
-        </div>`);
-      marker.on('click',e=>map.flyTo(e.latlng,15,{duration:1.5}));
+      marker.on('click', e => {
+        map.flyTo(e.latlng, 15, {duration:1.2});
+        showMarkerPanel(b, s);
+      });
       markerCluster.addLayer(marker);
     });
   });
