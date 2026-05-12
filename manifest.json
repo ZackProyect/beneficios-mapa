@@ -1,0 +1,26 @@
+{
+  "name": "Mapa de Beneficios Bancarios",
+  "short_name": "Beneficios",
+  "description": "Mapa interactivo de beneficios BCI y Santander",
+  "start_url": "/beneficios-mapa/",
+  "scope": "/beneficios-mapa/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1923",
+  "theme_color": "#003DA5",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
