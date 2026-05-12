@@ -402,7 +402,7 @@
     <label>Modalidad</label>
     <div class="filter-chips" id="filterModalidad">
       <div class="chip" data-mod="presencial">Presencial</div>
-      <div class="chip" data-mod="online">Online</div>
+      <div class="chip" data-mod="presencial y online">Presencial y Online</div>
     </div>
   </div>
 
@@ -963,6 +963,7 @@ document.querySelectorAll('#filterDistancia .chip').forEach(chip=>{
 
 function filterBeneficios() {
   let result=beneficios.filter(b=>{
+    if(b.modalidad==='Online') return false;
     if(activeFilters.buscar){const q=activeFilters.buscar;if(!b.nombre.toLowerCase().includes(q)&&!(b.brand_name||'').toLowerCase().includes(q)&&!(b.subtitulo||'').toLowerCase().includes(q))return false;}
     if(activeFilters.categoria&&!b.categorias.includes(activeFilters.categoria))return false;
     if(activeFilters.dias.length>0&&!activeFilters.dias.some(d=>b.dias.includes(d)))return false;
