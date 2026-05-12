@@ -534,7 +534,7 @@ function mapBCIOffer(o) {
     descripcion: o.subtitulo || (o.descripcion||'').substring(0,140),
     dias, recurrenceLabel: o.scheduling?.recurrenceLabel||'',
     modalidad, vigencia: o.fechaTermino ? new Date(o.fechaTermino).toLocaleDateString('es-CL') : null,
-    imagen: o.imagenes?.imagen1||null, link: o.link||null, sucursales: []
+    imagen: o.imagenes?.imagen1||null, logo: o.imagenes?.imagen4||o.imagenes?.imagen1||null, link: o.link||null, sucursales: []
   };
 }
 
@@ -760,8 +760,9 @@ if (navigator.geolocation) {
 // ══════════════════════════════════════════════════════════════════════════════
 function createIcon(b) {
   const safe = escAttr(b.nombre.substring(0,14));
-  if (b.imagen) return L.divIcon({ className:'custom-icon',
-    html:`<div class="marker-circle"><img src="${escAttr(b.imagen)}" alt="${safe}" onerror="imgFallback(this,'${escAttr(b.icono)}')" /></div>`,
+  const markerImg = b.logo || b.imagen;
+  if (markerImg) return L.divIcon({ className:'custom-icon',
+    html:`<div class="marker-circle"><img src="${escAttr(markerImg)}" alt="${safe}" onerror="imgFallback(this,'${escAttr(b.icono)}')" /></div>`,
     iconSize:[44,44], iconAnchor:[22,22] });
   return L.divIcon({ className:'custom-icon',
     html:`<div class="marker-circle"><span class="marker-fallback">${b.icono}</span></div>`,
