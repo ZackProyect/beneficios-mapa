@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de Beneficios Bancarios</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    /* ── VARIABLES DE TEMA (se sobreescriben al seleccionar banco) ─────────── */
+    :root {
+      --primary:       #003DA5;
+      --primary-dark:  #001F5C;
+      --primary-light: #E8F0FB;
+      --primary-btn:   #003DA5;
+      --badge-dcto-bg: #00ADEF;
+    }
+
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:'Nunito',sans-serif;background:#f5f5f5}
+
+    /* ── PANTALLA SELECCIÓN DE BANCO ────────────────────────────────────────── */
+    #bank-select-screen{
+      position:fixed;inset:0;z-index:10000;
+      background:linear-gradient(160deg,#0f1923 0%,#1a2a3a 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:24px;gap:32px
+    }
+    .bs-title{color:#fff;font-size:22px;font-weight:800;text-align:center;line-height:1.3}
+    .bs-subtitle{color:rgba(255,255,255,.6);font-size:13px;text-align:center;margin-top:-20px}
+    .bs-cards{display:flex;gap:16px;width:100%;max-width:500px}
+    .bs-card{
+      flex:1;background:#fff;border-radius:18px;padding:28px 16px 22px;
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:14px;
+      box-shadow:0 8px 32px rgba(0,0,0,.3);transition:transform .18s,box-shadow .18s;
+      border:3px solid transparent
+    }
+    .bs-card:hover{transform:translateY(-4px);box-shadow:0 14px 40px rgba(0,0,0,.4)}
+    .bs-card:active{transform:scale(.97)}
+    .bs-card.bci{border-color:#003DA5}
+    .bs-card.santander{border-color:#EC0000}
+    .bs-logo{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    .bs-logo.bci{background:linear-gradient(135deg,#001F5C,#003DA5)}
+    .bs-logo.santander{background:linear-gradient(135deg,#8B0000,#EC0000)}
+    .bs-logo-text{font-size:22px;font-weight:900;color:#fff;letter-spacing:-1px}
+    .bs-logo-text.santander{font-size:13px;letter-spacing:.5px}
+    .bs-bank-name{font-size:15px;font-weight:800;color:#1a1a1a}
+    .bs-bank-desc{font-size:11px;color:#888;text-align:center;line-height:1.4}
+
+    /* ── LOADING ────────────────────────────────────────────────────────────── */
+    #loading-screen{
+      position:fixed;inset:0;z-index:9999;
+      background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      color:#fff;transition:opacity .4s;gap:0
+    }
+    #loading-screen.fade-out{opacity:0;pointer-events:none}
+    .loading-logo{font-size:52px;margin-bottom:12px}
+    .loading-title{font-size:22px;font-weight:800;margin-bottom:4px}
+    .loading-subtitle{font-size:12px;opacity:.7;margin-bottom:22px}
+    .loading-bar-wrap{width:220px;height:5px;background:rgba(255,255,255,.2);border-radius:3px}
+    .loading-bar{height:100%;background:#fff;border-radius:3px;width:0%;transition:width .3s}
+    .loading-msg{font-size:11px;opacity:.6;margin-top:10px}
+
+    /* ── MAPA ───────────────────────────────────────────────────────────────── */
+    #map{position:fixed;inset:0;z-index:1}
+
+    /* ── HEADER ─────────────────────────────────────────────────────────────── */
+    .mobile-header{
+      position:fixed;top:0;left:0;right:0;z-index:1000;
+      background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);
+      color:#fff;padding:12px 16px;
+      padding-top:calc(max(12px,env(safe-area-inset-top)) + 10px);
+      display:flex;align-items:center;justify-content:space-between;
+      box-shadow:0 2px 10px rgba(0,0,0,.3)
+    }
+    .header-logo{font-size:20px;font-weight:900;letter-spacing:-.5px}
+    .header-logo .accent{opacity:.85}
+    .header-sub{font-size:10px;opacity:.7;margin-top:1px}
+    .header-actions{display:flex;align-items:center;gap:8px}
+    .btn-cambiar-banco{
+      background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);
+      border-radius:16px;padding:5px 10px;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer
+    }
+    .btn-filtros{
+      background:#fff;color:var(--primary);border:none;border-radius:20px;
+      padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer
+    }
+
+    /* ── BUSCADOR ───────────────────────────────────────────────────────────── */
+    .search-float{
+      position:fixed;top:calc(70px + env(safe-area-inset-top));left:12px;right:12px;
+      z-index:1000;display:flex;gap:8px;align-items:center
+    }
+    .search-float input{
+      flex:1;padding:10px 14px;border:none;border-radius:12px;
+      font-family:inherit;font-size:14px;background:#fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.15)
+    }
+    .pin-btn{
+      width:42px;height:42px;border-radius:50%;background:#fff;border:none;
+      box-shadow:0 2px 10px rgba(0,0,0,.15);cursor:pointer;display:flex;
+      align-items:center;justify-content:center;font-size:20px;flex-shrink:0;transition:background .15s
+    }
+    .pin-btn.active{background:var(--primary)}
+    .pin-btn.active span{filter:brightness(10)}
+
+    /* ── AREA BTN ───────────────────────────────────────────────────────────── */
+    .area-btn{
+      position:fixed;top:calc(118px + env(safe-area-inset-top));right:12px;z-index:999;
+      background:var(--primary);color:#fff;border:none;border-radius:20px;
+      padding:8px 14px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;
+      cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);
+      display:flex;align-items:center;gap:6px;transition:opacity .2s
+    }
+    .area-btn .spinner{
+      width:12px;height:12px;border:2px solid rgba(255,255,255,.3);
+      border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;display:none
+    }
+    .area-btn.loading{opacity:.7;pointer-events:none}
+    .area-btn.loading .spinner{display:inline-block}
+    .area-btn.loading .icon{display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── BUSCAR DIRECCIÓN ───────────────────────────────────────────────────── */
+    .addr-float{
+      position:fixed;top:calc(116px + env(safe-area-inset-top));left:12px;right:12px;
+      z-index:1000;display:none;flex-direction:column;gap:4px
+    }
+    .addr-float.open{display:flex}
+    .addr-float input{
+      width:100%;padding:10px 14px;border:2px solid var(--primary);border-radius:12px;
+      font-family:inherit;font-size:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15)
+    }
+    .addr-results{background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-height:180px;overflow-y:auto;display:none}
+    .addr-results.open{display:block}
+    .addr-item{padding:10px 14px;font-size:13px;color:#333;border-bottom:1px solid #f0f0f0;cursor:pointer}
+    .addr-item:active{background:#f0f0f0}
+
+    /* ── FILTER SHEET ───────────────────────────────────────────────────────── */
+    .filter-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;
+      display:none;opacity:0;transition:opacity .25s
+    }
+    .filter-overlay.open{display:block;opacity:1}
+    .filter-sheet{
+      position:fixed;bottom:0;left:0;right:0;background:#fff;
+      border-radius:20px 20px 0 0;z-index:2001;padding:20px;
+      padding-bottom:max(20px,env(safe-area-inset-bottom));
+      transform:translateY(100%);transition:transform .3s ease;max-height:80vh;overflow-y:auto
+    }
+    .filter-sheet.open{transform:translateY(0)}
+    .sheet-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 16px}
+    .sheet-title{font-size:16px;font-weight:800;margin-bottom:14px;color:#1a1a1a}
+    .filter-group{margin-bottom:14px}
+    .filter-group label{display:block;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px;letter-spacing:.5px}
+    .filter-group select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:14px;background:#fff}
+    .filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{
+      padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;
+      cursor:pointer;border:1.5px solid #ddd;background:#fff;transition:all .15s
+    }
+    .chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn-aplicar{
+      width:100%;padding:12px;background:var(--primary);color:#fff;border:none;
+      border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;margin-top:10px;cursor:pointer
+    }
+    #distNoLocation{display:none;font-size:11px;color:#856404;background:#fff3cd;border-radius:8px;padding:6px 10px;margin-top:6px}
+
+    /* ── CAROUSEL TOGGLE ────────────────────────────────────────────────────── */
+    .carousel-toggle{
+      position:fixed;bottom:178px;left:50%;transform:translateX(-50%);
+      z-index:1000;background:var(--primary);color:#fff;border:none;border-radius:20px;
+      padding:6px 16px;font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;
+      cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);
+      display:flex;align-items:center;gap:6px;white-space:nowrap;transition:bottom .3s ease
+    }
+    .carousel-toggle.collapsed{bottom:14px}
+    .carousel-toggle .arrow{transition:transform .3s ease;display:inline-block}
+    .carousel-toggle.collapsed .arrow{transform:rotate(180deg)}
+
+    /* ── CARDS CAROUSEL ─────────────────────────────────────────────────────── */
+    .card-carousel{
+      position:fixed;bottom:0;left:0;right:0;z-index:999;
+      padding:10px;padding-bottom:max(10px,env(safe-area-inset-bottom));
+      overflow-x:auto;display:flex;gap:10px;
+      scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+      transition:transform .3s ease
+    }
+    .card-carousel::-webkit-scrollbar{display:none}
+    .card-carousel.collapsed{transform:translateY(100%);pointer-events:none}
+    .benefit-card{
+      min-width:275px;max-width:295px;background:#fff;border:1.5px solid #eee;
+      border-radius:14px;overflow:hidden;cursor:pointer;scroll-snap-align:start;
+      box-shadow:0 2px 10px rgba(0,0,0,.12);flex-shrink:0;transition:border-color .15s
+    }
+    .benefit-card.selected{border-color:var(--primary);background:var(--primary-light)}
+    .card-img-wrap{width:100%;height:65px;overflow:hidden;background:var(--primary-light)}
+    .card-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+    .card-img-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px}
+    .card-body{padding:9px 11px 11px}
+    .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+    .card-discount{font-size:19px;font-weight:800;color:var(--primary)}
+    .card-badge{display:flex;gap:4px}
+    .badge{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700}
+    .badge-dcto{background:var(--badge-dcto-bg);color:#fff}
+    .badge-cashback{background:var(--primary);color:#fff}
+    .badge-promo{background:#FF6B35;color:#fff}
+    .card-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:2px}
+    .card-desc{font-size:11px;color:#666;line-height:1.35;margin-bottom:6px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .card-tags{display:flex;flex-wrap:wrap;gap:3px}
+    .tag{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;background:#f0f0f0;color:#555}
+    .tag-dia{background:#E8F5E9;color:#2E7D32}
+    .tag-cat{background:#E3F2FD;color:#1565C0}
+    .tag-loc{background:#FFF3E0;color:#E65100}
+    .tag-online{background:#F3E5F5;color:#6A1B9A}
+    .tag-dist{background:var(--primary-light);color:var(--primary);font-weight:700}
+
+    /* ── MARCADORES ─────────────────────────────────────────────────────────── */
+    .custom-icon{background:none;border:none}
+    .marker-circle{
+      box-sizing:border-box;background:#fff;border-radius:50%;width:44px;height:44px;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.3);overflow:hidden;padding:3px
+    }
+    .marker-circle img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+    .marker-fallback{font-family:'Nunito',sans-serif;font-size:8px;font-weight:800;color:var(--primary);text-align:center;line-height:1.1}
+
+    /* ── POPUP ──────────────────────────────────────────────────────────────── */
+    .leaflet-popup-content-wrapper{border-radius:12px;padding:5px}
+    .leaflet-popup-content{font-family:'Nunito',sans-serif;min-width:180px;text-align:center}
+    .popup-title{font-size:14px;font-weight:700;margin-bottom:2px}
+    .popup-tipo{font-size:11px;color:#666;margin-bottom:4px}
+    .popup-desc{font-size:11px;color:#666;margin-bottom:6px;line-height:1.3}
+    .promo-tag{background:var(--primary);color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;display:inline-block;margin:3px 2px;font-size:12px}
+    .popup-tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:4px}
+    .popup-tag{padding:2px 5px;border-radius:4px;font-size:9px;font-weight:600}
+
+    /* ── UBICACIÓN USUARIO ──────────────────────────────────────────────────── */
+    .user-location{position:relative;display:flex;flex-direction:column;align-items:center}
+    .user-dot{width:14px;height:14px;background:#4285F4;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(66,133,244,.5);z-index:2;position:relative}
+    .user-pulse{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;background:rgba(66,133,244,.25);border-radius:50%;z-index:1;animation:pulse 2s ease-out infinite}
+    @keyframes pulse{0%{width:14px;height:14px;opacity:1}100%{width:60px;height:60px;opacity:0}}
+    .user-label{margin-top:4px;background:#4285F4;color:#fff;font-family:'Nunito',sans-serif;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+
+    /* ── BOTÓN MI UBICACIÓN ─────────────────────────────────────────────────── */
+    #btnMyLocation{
+      position:fixed;bottom:120px;right:12px;z-index:999;
+      width:42px;height:42px;border-radius:50%;background:#fff;border:none;
+      box-shadow:0 2px 10px rgba(0,0,0,.22);cursor:pointer;
+      display:none;align-items:center;justify-content:center;font-size:20px
+    }
+    #btnMyLocation.active{background:#4285F4}
+    #btnMyLocation.active span{filter:brightness(10)}
+
+    /* ── TOAST ───────────────────────────────────────────────────────────────── */
+    #toast{
+      position:fixed;bottom:210px;left:50%;
+      transform:translateX(-50%) translateY(16px);
+      background:#323232;color:#fff;padding:9px 18px;border-radius:20px;
+      font-size:12px;font-weight:600;z-index:9000;
+      opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;
+      white-space:nowrap;max-width:85vw;text-align:center
+    }
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    #toast.error{background:#d32f2f}
+
+    /* ── ERROR ──────────────────────────────────────────────────────────────── */
+    #error-banner{
+      position:fixed;bottom:205px;left:12px;right:12px;z-index:1001;
+      background:#fff3cd;border:1px solid #ffc107;border-radius:10px;
+      padding:10px 14px;font-size:12px;color:#856404;display:none;text-align:center
+    }
+    #error-banner.show{display:block}
+  </style>
+</head>
+<body>
+
+<!-- ── PANTALLA SELECCIÓN DE BANCO ─────────────────────────────────────────── -->
+<div id="bank-select-screen">
+  <div class="bs-title">¿Con qué banco deseas<br>ver beneficios?</div>
+  <div class="bs-subtitle">Selecciona tu banco para cargar sus descuentos y promociones</div>
+  <div class="bs-cards">
+
+    <div class="bs-card bci" onclick="selectBank('bci')">
+      <div class="bs-logo bci">
+        <span class="bs-logo-text">Bci</span>
+      </div>
+      <div class="bs-bank-name">Banco Bci</div>
+      <div class="bs-bank-desc">Descuentos y cashback con tarjetas Bci</div>
+    </div>
+
+    <div class="bs-card santander" onclick="selectBank('santander')">
+      <div class="bs-logo santander">
+        <span class="bs-logo-text santander">SANTANDER</span>
+      </div>
+      <div class="bs-bank-name">Santander</div>
+      <div class="bs-bank-desc">Promociones y beneficios Santander Chile</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── LOADING ──────────────────────────────────────────────────────────────── -->
+<div id="loading-screen" style="display:none">
+  <div class="loading-logo" id="loadingEmoji">🏦</div>
+  <div class="loading-title" id="loadingTitle">Cargando...</div>
+  <div class="loading-subtitle" id="loadingSubtitle">Conectando con la API...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-msg" id="loadingMsg">Iniciando...</div>
+</div>
+
+<!-- ── HEADER ───────────────────────────────────────────────────────────────── -->
+<div class="mobile-header" id="mainHeader" style="display:none">
+  <div style="flex:1">
+    <div class="header-logo" id="headerLogo">Beneficios</div>
+    <div class="header-sub" id="headerSub">Cargando...</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-cambiar-banco" onclick="cambiarBanco()">⇄ Banco</button>
+    <button class="btn-filtros" onclick="toggleFilters()">Filtros</button>
+  </div>
+</div>
+
+<!-- ── BUSCADOR ─────────────────────────────────────────────────────────────── -->
+<div class="search-float" id="searchFloat" style="display:none">
+  <input type="text" id="filterBuscar" placeholder="Buscar beneficio o comercio...">
+  <button class="pin-btn" id="pinBtn" onclick="toggleAddrSearch()"><span>📍</span></button>
+</div>
+<div class="addr-float" id="addrFloat">
+  <input type="text" id="addrSearch" placeholder="Ingresa tu dirección...">
+  <div class="addr-results" id="addrResults"></div>
+</div>
+
+<!-- ── BOTÓN ÁREA ────────────────────────────────────────────────────────────── -->
+<button class="area-btn" id="areaBtn" onclick="searchInVisibleArea()" style="display:none">
+  <span class="icon">🔍</span>
+  <span class="spinner"></span>
+  <span class="label">Buscar en esta área</span>
+</button>
+
+<!-- ── MAPA ─────────────────────────────────────────────────────────────────── -->
+<div id="map"></div>
+
+<!-- ── BOTÓN MI UBICACIÓN ───────────────────────────────────────────────────── -->
+<button id="btnMyLocation" onclick="requestMyLocation()" title="Mi ubicación">
+  <span>📍</span>
+</button>
+
+<!-- ── TOAST ────────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── ERROR ────────────────────────────────────────────────────────────────── -->
+<div id="error-banner"></div>
+
+<!-- ── TOGGLE + CONTADOR ────────────────────────────────────────────────────── -->
+<button class="carousel-toggle" id="carouselToggle" onclick="toggleCarousel()" style="display:none">
+  <span class="arrow">▼</span>
+  <span id="resultsCount">Cargando...</span>
+</button>
+
+<!-- ── CARRUSEL ─────────────────────────────────────────────────────────────── -->
+<div class="card-carousel" id="cardList" style="display:none"></div>
+
+<!-- ── FILTER SHEET ──────────────────────────────────────────────────────────── -->
+<div class="filter-overlay" id="filterOverlay" onclick="toggleFilters()"></div>
+<div class="filter-sheet" id="filterSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Filtros</div>
+
+  <div class="filter-group">
+    <label>Categoría</label>
+    <select id="filterCategoria">
+      <option value="">Todas las categorías</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>Día</label>
+    <div class="filter-chips" id="filterDias">
+      <div class="chip" data-dia="Lunes">Lunes</div>
+      <div class="chip" data-dia="Martes">Martes</div>
+      <div class="chip" data-dia="Miércoles">Miércoles</div>
+      <div class="chip" data-dia="Jueves">Jueves</div>
+      <div class="chip" data-dia="Viernes">Viernes</div>
+      <div class="chip" data-dia="Sábado">Sábado</div>
+      <div class="chip" data-dia="Domingo">Domingo</div>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <label>Modalidad</label>
+    <div class="filter-chips" id="filterModalidad">
+      <div class="chip" data-mod="presencial">Presencial</div>
+      <div class="chip" data-mod="online">Online</div>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <label>Tipo de beneficio</label>
+    <div class="filter-chips" id="filterTipo">
+      <div class="chip" data-tipo="DISCOUNT">Descuento</div>
+      <div class="chip" data-tipo="CASHBACK">Cashback</div>
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <label>Cercanos a mi ubicación</label>
+    <div class="filter-chips" id="filterDistancia">
+      <div class="chip" data-dist="0.5">500 m</div>
+      <div class="chip" data-dist="1">1 km</div>
+      <div class="chip" data-dist="5">5 km</div>
+    </div>
+    <div id="distNoLocation">📍 Activa tu ubicación para usar este filtro</div>
+  </div>
+
+  <button class="btn-aplicar" onclick="toggleFilters()">Aplicar filtros</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN DE BANCOS
+// ══════════════════════════════════════════════════════════════════════════════
+const BANK_CONFIGS = {
+  bci: {
+    name: 'Bci',
+    fullName: 'Banco Bci',
+    emoji: '🔵',
+    primary:      '#003DA5',
+    primaryDark:  '#001F5C',
+    primaryLight: '#E8F0FB',
+    badgeDcto:    '#00ADEF',
+    apiHeaders:   { 'ocp-apim-subscription-key': 'fa981752762743668413b68821a43840' },
+    fetchAll:     fetchBCI,
+    logoHtml:     'B<span class="accent">ci</span> Beneficios'
+  },
+  santander: {
+    name: 'Santander',
+    fullName: 'Banco Santander',
+    emoji: '🔴',
+    primary:      '#EC0000',
+    primaryDark:  '#8B0000',
+    primaryLight: '#FFEBEB',
+    badgeDcto:    '#FF6B35',
+    apiHeaders:   {},
+    fetchAll:     fetchSantander,
+    logoHtml:     'Santander <span class="accent">Beneficios</span>'
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function escAttr(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function imgFallback(el, icon) {
+  el.parentElement.innerHTML = '<div class="card-img-placeholder">' + icon + '</div>';
+}
+function stripHtml(html) {
+  return (html||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+
+const CAT_EMOJI = {
+  restaurante:'🍽️',gastronom:'🍽️',comida:'🍽️',cafe:'☕',sabores:'🍽️',
+  viaje:'✈️',hotel:'🏨',turismo:'✈️',
+  retail:'🛍️',ropa:'👗',moda:'👗',tienda:'🛍️',
+  salud:'💊',farmacia:'💊',
+  belleza:'💄',
+  entretenim:'🎭',cine:'🎬',teatro:'🎭',
+  deport:'⚽',fitness:'🏋️',
+  tecnolog:'💻',electron:'📱',
+  supermercado:'🛒',market:'🛒',
+  cashback:'💰',descuento:'🏷️',otros:'🏷️'
+};
+function getCategoryEmoji(cat) {
+  const l = (cat||'').toLowerCase();
+  for (const [k,v] of Object.entries(CAT_EMOJI)) if (l.includes(k)) return v;
+  return '🏷️';
+}
+
+const DAYS_MAP = {
+  LUNES:'Lunes',MARTES:'Martes',MIERCOLES:'Miércoles',MIÉRCOLES:'Miércoles',
+  JUEVES:'Jueves',VIERNES:'Viernes',SABADO:'Sábado',SÁBADO:'Sábado',DOMINGO:'Domingo'
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADAPTADOR BCI
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchBCI(onProgress) {
+  const BASE = 'https://api.bciplus.cl/bff-loyalty-beneficios/v1/offers';
+  const HDRS = BANK_CONFIGS.bci.apiHeaders;
+  const first = await fetch(`${BASE}?itemsPorPagina=100&pagina=1`, { headers: HDRS }).then(r => {
+    if (!r.ok) throw new Error(`BCI API: HTTP ${r.status}`);
+    return r.json();
+  });
+  const totalPages = first.paginado?.totalPaginas || 1;
+  onProgress(1/totalPages, `Página 1 de ${totalPages}`);
+  let all = first.ofertas.map(mapBCIOffer);
+  if (totalPages > 1) {
+    const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
+    const results = await Promise.all(pages.map(p =>
+      fetch(`${BASE}?itemsPorPagina=100&pagina=${p}`, { headers: HDRS })
+        .then(r => r.json())
+        .then(d => { onProgress(p/totalPages, `Página ${p} de ${totalPages}`); return d.ofertas.map(mapBCIOffer); })
+    ));
+    results.forEach(r => { all = all.concat(r); });
+  }
+  return all;
+}
+
+function mapBCIOffer(o) {
+  const categorias = (o.categorias||[]).map(c => c.titulo);
+  const tagNames   = (o.tags||[]).map(t => t.nombre);
+  const dias       = (o.scheduling?.dayRecurrence||[]).map(d => DAYS_MAP[d]||d);
+  const firstCat   = categorias[0] || 'Beneficio';
+  const isPresencial = tagNames.some(t => /presencial/i.test(t));
+  const isOnline     = tagNames.some(t => /online/i.test(t)) || (o.link && o.link.length > 5);
+  let modalidad = isPresencial && isOnline ? 'Presencial y Online' : isOnline ? 'Online' : isPresencial ? 'Presencial' : 'General';
+  const pct = o.beneficio?.discount?.porcentajeDescuento ?? o.deal?.discount?.percentage;
+  let descuento = pct ? pct+'%' : '';
+  if (!descuento) { const m = (o.titulo+' '+(o.subtitulo||'')).match(/(\d+%|\d+x\d+)/i); if(m) descuento=m[1]; }
+  return {
+    id: o.id, brand_name: cleanBrand(o.comercio?.nombre),
+    nombre: o.titulo||'', subtitulo: o.subtitulo||'', icono: getCategoryEmoji(firstCat),
+    categoria: firstCat, categorias, tagNames, descuento,
+    tipo: o.tipoOfertaPrincipal||'DISCOUNT',
+    descripcion: o.subtitulo || (o.descripcion||'').substring(0,140),
+    dias, recurrenceLabel: o.scheduling?.recurrenceLabel||'',
+    modalidad, vigencia: o.fechaTermino ? new Date(o.fechaTermino).toLocaleDateString('es-CL') : null,
+    imagen: o.imagenes?.imagen1||null, link: o.link||null, sucursales: []
+  };
+}
+
+function cleanBrand(name) {
+  if (!name) return null;
+  return name.replace(/\s*[-–]\s*(descuento|oferta|cashback|promo|bci|plus|banco|tarjeta|débito|credito).*$/gi,'').trim();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADAPTADOR SANTANDER
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchSantander(onProgress) {
+  const URL = 'https://banco.santander.cl/beneficios/promociones.json?per_page=9999&tags=home-disfrutadores&custom_fields=true&order_by=updated_at&desc=true&hash=151';
+  onProgress(0.3, 'Cargando promociones...');
+  const data = await fetch(URL).then(r => {
+    if (!r.ok) throw new Error(`Santander API: HTTP ${r.status}. Visita banco.santander.cl primero e intenta nuevamente.`);
+    return r.json();
+  });
+  onProgress(0.8, 'Procesando beneficios...');
+  const result = (data.promociones || []).map(mapSantanderOffer);
+  onProgress(1, 'Listo');
+  return result;
+}
+
+const SANT_CAT_MAP = {
+  'cat-sabores':'Restaurantes','cat-descuentos':'Descuentos','cat-otros':'Otros',
+  'cat-viajes':'Viajes','cat-entretenimiento':'Entretenimiento',
+  'cat-salud':'Salud','cat-retail':'Retail','cat-tecnologia':'Tecnología'
+};
+const SANT_DAY_MAP = {
+  'todos-los-dias':'Todos los días',
+  'lunes':'Lunes','lunes-de-sabores':'Lunes',
+  'martes':'Martes','martes-de-sabores':'Martes',
+  'miercoles':'Miércoles','miercoles-de-sabores':'Miércoles',
+  'jueves':'Jueves','jueves-de-sabores':'Jueves',
+  'viernes':'Viernes','viernes-de-sabores':'Viernes',
+  'sabado':'Sábado','domingo':'Domingo'
+};
+
+function mapSantanderOffer(p) {
+  const cf = p.custom_fields || {};
+  const bajada  = cf['Bajada externa']?.value || cf['Bajada interna']?.value || '';
+  const vigencia = cf['Vigencia']?.value || null;
+
+  const catTag = (p.tags||[]).find(t => t.startsWith('cat-'));
+  const categoria = catTag ? (SANT_CAT_MAP[catTag] || catTag.replace('cat-','').replace(/-/g,' ')) : 'Beneficio';
+
+  const dias = [], seen = {};
+  let recurrenceLabel = '';
+  (p.tags||[]).forEach(t => {
+    const d = SANT_DAY_MAP[t];
+    if (!d) return;
+    if (t === 'todos-los-dias') { recurrenceLabel = 'Todos los días'; return; }
+    if (!seen[d]) { seen[d]=1; dias.push(d); }
+  });
+
+  const discMatch = bajada.match(/(\d+%)/);
+  const descuento = discMatch ? discMatch[1] : '';
+
+  const descLow = stripHtml(p.description||'').toLowerCase();
+  const isOnline     = descLow.includes('online') || descLow.includes('cupón') || descLow.includes('código') || (cf['Sitio web beneficio']?.value||'').length > 3;
+  const isPresencial = descLow.includes('locales') || descLow.includes('presencial') || !!p.location_street;
+  let modalidad = isPresencial && isOnline ? 'Presencial y Online' : isOnline ? 'Online' : isPresencial ? 'Presencial' : 'General';
+
+  const tipo = (descuento || bajada.toLowerCase().includes('dcto')) ? 'DISCOUNT'
+             : bajada.toLowerCase().includes('cashback') ? 'CASHBACK' : 'PROMO';
+
+  const sucursales = (p.latitude && p.longitude)
+    ? [{ lat: +p.latitude, lng: +p.longitude, nombre: p.title||'', direccion: p.location_street||'' }]
+    : [];
+
+  return {
+    id: String(p.id), brand_name: p.title||null,
+    nombre: p.title||'', subtitulo: bajada, icono: getCategoryEmoji(categoria),
+    categoria, categorias: [categoria], tagNames: p.tags||[], descuento,
+    tipo, descripcion: bajada || stripHtml(p.description||'').substring(0,140),
+    dias, recurrenceLabel, modalidad, vigencia,
+    imagen: (p.covers||[])[0]||null,
+    link: cf['Sitio web beneficio']?.value || p.url || null,
+    sucursales
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTADO DE LA APP
+// ══════════════════════════════════════════════════════════════════════════════
+let activeBank    = null;
+let beneficios    = [];
+let map, markerCluster;
+let activeFilters = { buscar:'', categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
+let selectedId    = null;
+let userLat = null, userLng = null, userDotMarker = null;
+let carouselVisible = true;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SELECCIÓN DE BANCO
+// ══════════════════════════════════════════════════════════════════════════════
+function selectBank(bankId) {
+  activeBank = BANK_CONFIGS[bankId];
+  applyTheme(activeBank);
+  document.getElementById('bank-select-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('loadingEmoji').textContent = activeBank.emoji;
+  document.getElementById('loadingTitle').textContent = activeBank.fullName;
+  document.getElementById('loadingSubtitle').textContent = 'Cargando beneficios...';
+  // Reset filtros
+  beneficios = []; activeFilters = { buscar:'', categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
+  selectedId = null;
+  document.getElementById('filterCategoria').innerHTML = '<option value="">Todas las categorías</option>';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('filterBuscar').value = '';
+  initApp();
+}
+
+function cambiarBanco() {
+  // Ocultar app
+  ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList','btnMyLocation'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  if (markerCluster) markerCluster.clearLayers();
+  document.getElementById('bank-select-screen').style.display = 'flex';
+}
+
+function applyTheme(bank) {
+  const r = document.documentElement.style;
+  r.setProperty('--primary',       bank.primary);
+  r.setProperty('--primary-dark',  bank.primaryDark);
+  r.setProperty('--primary-light', bank.primaryLight);
+  r.setProperty('--badge-dcto-bg', bank.badgeDcto);
+  document.getElementById('headerLogo').innerHTML = bank.logoHtml;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAPA (init único)
+// ══════════════════════════════════════════════════════════════════════════════
+map = L.map('map', { zoomControl:false, attributionControl:false }).setView([-33.45,-70.65], 12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains:'abcd', maxZoom:20 }).addTo(map);
+L.control.zoom({ position:'bottomleft' }).addTo(map);
+markerCluster = L.markerClusterGroup({ maxClusterRadius:40 });
+map.addLayer(markerCluster);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GEOLOCALIZACIÓN Y DISTANCIA
+// ══════════════════════════════════════════════════════════════════════════════
+function haversineKm(lat1,lng1,lat2,lng2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function getClosestSucursal(b) {
+  if (userLat===null || !b.sucursales.length) return null;
+  let min=Infinity, closest=null;
+  b.sucursales.forEach(s => { const d=haversineKm(userLat,userLng,s.lat,s.lng); if(d<min){min=d;closest=Object.assign({},s,{distKm:d});} });
+  return closest;
+}
+function formatDist(km) { return km<1 ? Math.round(km*1000)+' m' : km.toFixed(1)+' km'; }
+
+function showToast(msg, isError=false) {
+  const t=document.getElementById('toast');
+  if (!t) return;
+  t.textContent=msg;
+  t.classList.toggle('error',isError);
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+function showUserDot(lat, lng) {
+  userLat=lat; userLng=lng;
+  if (userDotMarker) map.removeLayer(userDotMarker);
+  const icon=L.divIcon({ className:'custom-icon',
+    html:`<div class="user-location"><div class="user-pulse"></div><div class="user-dot"></div><div class="user-label">Usted está aquí</div></div>`,
+    iconSize:[120,50], iconAnchor:[60,25] });
+  userDotMarker=L.marker([lat,lng],{icon,zIndexOffset:10000}).addTo(map);
+  map.flyTo([lat,lng],15,{duration:1.2});
+  const btn=document.getElementById('btnMyLocation');
+  if (btn) { btn.classList.add('active'); btn.querySelector('span').textContent='🎯'; }
+}
+
+function requestMyLocation() {
+  if (!navigator.geolocation) { showToast('Tu navegador no soporta geolocalización',true); return; }
+  const btn=document.getElementById('btnMyLocation');
+  btn.querySelector('span').textContent='⏳';
+  showToast('Obteniendo ubicación...');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      showUserDot(pos.coords.latitude, pos.coords.longitude);
+      showToast('📍 Ubicación obtenida');
+      render();
+    },
+    err => {
+      btn.querySelector('span').textContent='📍';
+      const msgs={1:'Permiso denegado. Ve a Configuración del navegador → Privacidad → Ubicación y actívala para este sitio.',2:'No se pudo obtener la ubicación. Verifica tu GPS.',3:'Tiempo de espera agotado. Intenta nuevamente.'};
+      showToast('❌ '+(msgs[err.code]||'Error al obtener ubicación'),true);
+    },
+    { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
+  );
+}
+
+function requestUserLocation(onSuccess) {
+  if (!navigator.geolocation) { showToast('Tu navegador no soporta geolocalización',true); return; }
+  navigator.geolocation.getCurrentPosition(
+    p => { showUserDot(p.coords.latitude,p.coords.longitude); if(onSuccess) onSuccess(); },
+    err => {
+      const msgs={1:'Permiso denegado.',2:'No se pudo obtener la ubicación.',3:'Tiempo de espera agotado.'};
+      showToast('❌ '+(msgs[err.code]||'Error'),true);
+    },
+    { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
+  );
+}
+
+// Intento silencioso al cargar (solo si ya hay permiso previo)
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    p => showUserDot(p.coords.latitude,p.coords.longitude),
+    ()=>{}, // silencioso — el botón lo pedirá explícitamente
+    { timeout:5000, maximumAge:300000 }
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ICONO MARCADOR
+// ══════════════════════════════════════════════════════════════════════════════
+function createIcon(b) {
+  const safe = escAttr(b.nombre.substring(0,14));
+  if (b.imagen) return L.divIcon({ className:'custom-icon',
+    html:`<div class="marker-circle"><img src="${escAttr(b.imagen)}" alt="${safe}" onerror="imgFallback(this,'${escAttr(b.icono)}')" /></div>`,
+    iconSize:[44,44], iconAnchor:[22,22] });
+  return L.divIcon({ className:'custom-icon',
+    html:`<div class="marker-circle"><span class="marker-fallback">${b.icono}</span></div>`,
+    iconSize:[44,44], iconAnchor:[22,22] });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// OSM GEOCODING (Photon → Nominatim, cache 24h)
+// ══════════════════════════════════════════════════════════════════════════════
+let sucCache = {};
+const CACHE_KEY_PREFIX = 'beneficios_osm_v2_';
+const CACHE_TTL = 24*60*60*1000;
+
+function loadCache(bankId) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY_PREFIX+bankId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (Date.now()-parsed.ts > CACHE_TTL) { localStorage.removeItem(CACHE_KEY_PREFIX+bankId); return {}; }
+    return parsed.data || {};
+  } catch(e) { return {}; }
+}
+function saveCache(bankId) {
+  try { localStorage.setItem(CACHE_KEY_PREFIX+bankId, JSON.stringify({ts:Date.now(),data:sucCache})); } catch(e) {}
+}
+
+function fetchSucursalesOSM(brandName, bounds) {
+  const ck = bounds
+    ? `${brandName}:${bounds.south.toFixed(2)},${bounds.west.toFixed(2)},${bounds.north.toFixed(2)},${bounds.east.toFixed(2)}`
+    : brandName;
+  if (sucCache[ck]) return Promise.resolve(sucCache[ck]);
+  const biasLat = bounds?(bounds.north+bounds.south)/2:-33.45;
+  const biasLng = bounds?(bounds.east+bounds.west)/2:-70.65;
+  const url = `https://photon.komoot.io/api?q=${encodeURIComponent(brandName)}&lat=${biasLat}&lon=${biasLng}&limit=100&osm_tag=amenity&osm_tag=shop&osm_tag=fuel`;
+  return fetch(url).then(r=>r.json()).then(data=>{
+    const seen={},locs=[],bLow=brandName.toLowerCase(),firstWord=bLow.split(' ')[0];
+    const fb = bounds
+      ? {n:bounds.north+(bounds.north-bounds.south)*.5,s:bounds.south-(bounds.north-bounds.south)*.5,e:bounds.east+(bounds.east-bounds.west)*.5,w:bounds.west-(bounds.east-bounds.west)*.5}
+      : {n:-17.5,s:-56.0,e:-66.0,w:-76.0};
+    (data.features||[]).forEach(f=>{
+      if (!f.geometry?.coordinates) return;
+      const [lng,lat]=f.geometry.coordinates;
+      if (lat<fb.s||lat>fb.n||lng<fb.w||lng>fb.e) return;
+      const name=(f.properties?.name||'').toLowerCase();
+      if (!name.includes(bLow)&&!bLow.includes(name)&&!name.includes(firstWord)) return;
+      const k=lat.toFixed(4)+','+lng.toFixed(4);
+      if (seen[k]) return; seen[k]=1;
+      const p=f.properties||{};
+      locs.push({lat,lng,nombre:p.name||brandName,direccion:[p.street,p.housenumber].filter(Boolean).join(' ')||p.city||''});
+    });
+    sucCache[ck]=locs; saveCache(activeBank?.name||'x'); return locs;
+  }).catch(()=>fetchSucursalesNominatim(brandName,bounds));
+}
+
+function fetchSucursalesNominatim(brandName, bounds) {
+  const b=bounds||{north:-33.30,south:-33.65,east:-70.45,west:-70.85};
+  const viewbox=`${b.west},${b.north},${b.east},${b.south}`;
+  const url=`https://nominatim.openstreetmap.org/search?format=json&limit=50&countrycodes=cl&viewbox=${viewbox}&bounded=1&q=${encodeURIComponent(brandName+', Santiago')}`;
+  return fetch(url).then(r=>r.json()).then(results=>{
+    const seen={},locs=[],bLow=brandName.toLowerCase();
+    (results||[]).forEach(r=>{
+      const lat=parseFloat(r.lat),lng=parseFloat(r.lon);
+      if(isNaN(lat)||isNaN(lng)) return;
+      const name=r.display_name.split(',')[0];
+      if(!name.toLowerCase().includes(bLow)) return;
+      const k=lat.toFixed(4)+','+lng.toFixed(4);
+      if(seen[k]) return; seen[k]=1;
+      locs.push({lat,lng,nombre:name,direccion:r.display_name.split(',').slice(1,3).join(',').trim()});
+    });
+    sucCache[`${brandName}:nom`]=locs; saveCache(activeBank?.name||'x'); return locs;
+  }).catch(()=>[]);
+}
+
+function mergeSucursales(ben, locs) {
+  const ex={};
+  ben.sucursales.forEach(s=>{ex[s.lat.toFixed(4)+','+s.lng.toFixed(4)]=1;});
+  locs.forEach(s=>{const k=s.lat.toFixed(4)+','+s.lng.toFixed(4);if(!ex[k]){ben.sucursales.push(s);ex[k]=1;}});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BUSCAR DIRECCIÓN
+// ══════════════════════════════════════════════════════════════════════════════
+let userMarker=null, addrTimeout=null;
+function toggleAddrSearch() {
+  const panel=document.getElementById('addrFloat'), btn=document.getElementById('pinBtn');
+  if(panel.classList.contains('open')){panel.classList.remove('open');btn.classList.remove('active');}
+  else{panel.classList.add('open');btn.classList.add('active');document.getElementById('addrSearch').focus();}
+}
+document.getElementById('addrSearch').addEventListener('input',function(){
+  clearTimeout(addrTimeout);
+  const q=this.value.trim();
+  if(q.length<3){document.getElementById('addrResults').classList.remove('open');return;}
+  addrTimeout=setTimeout(()=>searchAddress(q),400);
+});
+function searchAddress(q) {
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=cl&q=${encodeURIComponent(q+', Chile')}`)
+    .then(r=>r.json()).then(results=>{
+      const c=document.getElementById('addrResults');
+      if(!results.length){c.innerHTML='<div class="addr-item" style="color:#999">No se encontró la dirección</div>';c.classList.add('open');return;}
+      c.innerHTML=results.map(r=>`<div class="addr-item" onclick="selectAddress(${r.lat},${r.lon})">${r.display_name.substring(0,80)}</div>`).join('');
+      c.classList.add('open');
+    }).catch(()=>{});
+}
+function selectAddress(lat,lng) {
+  document.getElementById('addrResults').classList.remove('open');
+  document.getElementById('addrFloat').classList.remove('open');
+  document.getElementById('pinBtn').classList.remove('active');
+  document.getElementById('addrSearch').value='';
+  if(userMarker) map.removeLayer(userMarker);
+  const icon=L.divIcon({className:'custom-icon',
+    html:`<div class="user-location"><div class="user-pulse"></div><div class="user-dot"></div><div class="user-label">Usted está aquí</div></div>`,
+    iconSize:[120,50],iconAnchor:[60,25]});
+  userMarker=L.marker([lat,lng],{icon,zIndexOffset:10000}).addTo(map);
+  map.flyTo([lat,lng],15,{duration:1});
+  const r=0.045;
+  searchAroundBounds({north:+lat+r,south:+lat-r,east:+lng+r,west:+lng-r});
+}
+function searchAroundBounds(bounds) {
+  const targets=selectedId?beneficios.filter(x=>x.id===selectedId):beneficios;
+  const seen={};
+  targets.filter(b=>b.brand_name).forEach(ben=>{
+    if(seen[ben.brand_name]) return; seen[ben.brand_name]=1;
+    fetchSucursalesOSM(ben.brand_name,bounds).then(locs=>{mergeSucursales(ben,locs);render();});
+  });
+}
+function searchInVisibleArea() {
+  const mb=map.getBounds();
+  const bounds={north:mb.getNorth(),south:mb.getSouth(),east:mb.getEast(),west:mb.getWest()};
+  const btn=document.getElementById('areaBtn');
+  btn.classList.add('loading'); btn.querySelector('.label').textContent='Buscando...';
+  const targets=selectedId?beneficios.filter(x=>x.id===selectedId):beneficios;
+  const seen={};
+  const promises=targets.filter(b=>b.brand_name).map(ben=>{
+    if(seen[ben.brand_name]) return Promise.resolve(); seen[ben.brand_name]=1;
+    return fetchSucursalesOSM(ben.brand_name,bounds).then(locs=>mergeSucursales(ben,locs));
+  });
+  Promise.all(promises).then(()=>{btn.classList.remove('loading');btn.querySelector('.label').textContent='Buscar en esta área';render();});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FILTROS
+// ══════════════════════════════════════════════════════════════════════════════
+document.getElementById('filterBuscar').addEventListener('input',e=>{
+  activeFilters.buscar=e.target.value.trim().toLowerCase(); selectedId=null; render();
+});
+document.getElementById('filterCategoria').addEventListener('change',e=>{
+  activeFilters.categoria=e.target.value; render();
+});
+document.querySelectorAll('#filterDias .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    chip.classList.toggle('active');
+    activeFilters.dias=[...document.querySelectorAll('#filterDias .chip.active')].map(c=>c.dataset.dia);
+    render();
+  });
+});
+document.querySelectorAll('#filterModalidad .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    chip.classList.toggle('active');
+    activeFilters.modalidad=[...document.querySelectorAll('#filterModalidad .chip.active')].map(c=>c.dataset.mod);
+    render();
+  });
+});
+document.querySelectorAll('#filterTipo .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    chip.classList.toggle('active');
+    activeFilters.tipo=[...document.querySelectorAll('#filterTipo .chip.active')].map(c=>c.dataset.tipo);
+    render();
+  });
+});
+document.querySelectorAll('#filterDistancia .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    const dist=parseFloat(chip.dataset.dist), wasActive=chip.classList.contains('active');
+    document.querySelectorAll('#filterDistancia .chip').forEach(c=>c.classList.remove('active'));
+    if(wasActive){activeFilters.distancia=null;document.getElementById('distNoLocation').style.display='none';render();return;}
+    if(userLat===null){
+      document.getElementById('distNoLocation').style.display='block';
+      requestUserLocation(()=>{
+        document.getElementById('distNoLocation').style.display='none';
+        chip.classList.add('active'); activeFilters.distancia=dist;
+        const r=Math.max(dist*1.5,0.05)/111;
+        searchAroundBounds({north:userLat+r,south:userLat-r,east:userLng+r,west:userLng-r});
+        render();
+      });
+      return;
+    }
+    chip.classList.add('active'); activeFilters.distancia=dist;
+    const r=Math.max(dist*1.5,0.05)/111;
+    searchAroundBounds({north:userLat+r,south:userLat-r,east:userLng+r,west:userLng-r});
+    render();
+  });
+});
+
+function filterBeneficios() {
+  let result=beneficios.filter(b=>{
+    if(activeFilters.buscar){const q=activeFilters.buscar;if(!b.nombre.toLowerCase().includes(q)&&!(b.brand_name||'').toLowerCase().includes(q)&&!(b.subtitulo||'').toLowerCase().includes(q))return false;}
+    if(activeFilters.categoria&&!b.categorias.includes(activeFilters.categoria))return false;
+    if(activeFilters.dias.length>0&&!activeFilters.dias.some(d=>b.dias.includes(d)))return false;
+    if(activeFilters.modalidad.length>0&&!activeFilters.modalidad.some(m=>b.modalidad.toLowerCase().includes(m)))return false;
+    if(activeFilters.tipo.length>0&&!activeFilters.tipo.includes(b.tipo))return false;
+    if(activeFilters.distancia!==null){const c=getClosestSucursal(b);if(!c||c.distKm>activeFilters.distancia)return false;}
+    return true;
+  });
+  if(activeFilters.distancia!==null&&userLat!==null){
+    result.sort((a,b)=>(getClosestSucursal(a)?.distKm??Infinity)-(getClosestSucursal(b)?.distKm??Infinity));
+  }
+  return result;
+}
+
+function toggleFilters() {
+  const overlay=document.getElementById('filterOverlay'),sheet=document.getElementById('filterSheet');
+  if(sheet.classList.contains('open')){sheet.classList.remove('open');overlay.classList.remove('open');}
+  else{overlay.classList.add('open');sheet.classList.add('open');}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TOGGLE CAROUSEL
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleCarousel() {
+  carouselVisible=!carouselVisible;
+  document.getElementById('cardList').classList.toggle('collapsed',!carouselVisible);
+  document.getElementById('carouselToggle').classList.toggle('collapsed',!carouselVisible);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════════════════
+function getBadgeClass(tipo) { return tipo==='CASHBACK'?'badge-cashback':tipo==='DISCOUNT'?'badge-dcto':'badge-promo'; }
+function getBadgeLabel(tipo) { return tipo==='CASHBACK'?'CASHBACK':tipo==='DISCOUNT'?'DESCUENTO':(tipo||'PROMO').toUpperCase(); }
+
+function render() {
+  const filtered=filterBeneficios();
+  const totalPins=filtered.reduce((s,b)=>s+b.sucursales.length,0);
+  document.getElementById('resultsCount').textContent=`${filtered.length} beneficios · ${totalPins} ubicaciones`;
+
+  let html='';
+  filtered.forEach(b=>{
+    const isSel=selectedId===b.id;
+    const diasLabel=b.recurrenceLabel||(b.dias.length?b.dias.join(', '):'');
+    const closest=getClosestSucursal(b);
+    html+=`
+      <div class="benefit-card ${isSel?'selected':''}" onclick="selectBenefit('${escAttr(b.id)}')" data-id="${escAttr(b.id)}">
+        <div class="card-img-wrap">
+          ${b.imagen
+            ?`<img src="${escAttr(b.imagen)}" alt="${escAttr(b.nombre)}" loading="lazy" onerror="imgFallback(this,'${escAttr(b.icono)}')" />`
+            :`<div class="card-img-placeholder">${b.icono}</div>`}
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <div class="card-discount">${escAttr(b.descuento)||b.icono}</div>
+            <div class="card-badge"><span class="badge ${getBadgeClass(b.tipo)}">${getBadgeLabel(b.tipo)}</span></div>
+          </div>
+          <div class="card-name">${escAttr(b.nombre)}</div>
+          <div class="card-desc">${escAttr(b.descripcion)}</div>
+          <div class="card-tags">
+            ${diasLabel?`<span class="tag tag-dia">${escAttr(diasLabel)}</span>`:''}
+            <span class="tag tag-cat">${escAttr(b.categoria)}</span>
+            ${closest
+              ?`<span class="tag tag-loc">📍 ${b.sucursales.length} suc.</span><span class="tag tag-dist">🧭 ${formatDist(closest.distKm)}</span>`
+              :b.modalidad==='Online'?'<span class="tag tag-online">🌐 Online</span>':''}
+            ${b.vigencia?`<span class="tag">${escAttr(b.vigencia)}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('cardList').innerHTML=html;
+
+  markerCluster.clearLayers();
+  const toShow=selectedId?filtered.filter(b=>b.id===selectedId):filtered;
+  toShow.forEach(b=>{
+    if(!b.sucursales.length) return;
+    b.sucursales.forEach(s=>{
+      if(!s.lat||!s.lng) return;
+      const marker=L.marker([s.lat,s.lng],{icon:createIcon(b)});
+      marker.bindPopup(`
+        <div class="popup-title">${escAttr(s.nombre||b.nombre)}</div>
+        <div class="popup-tipo">${escAttr(b.categoria)}</div>
+        ${s.direccion?`<div style="font-size:11px;color:#999;margin-bottom:6px">${escAttr(s.direccion)}</div>`:''}
+        <div class="promo-tag">${escAttr(b.descuento)} ${getBadgeLabel(b.tipo)}</div>
+        <div class="popup-desc">${escAttr(b.descripcion)}</div>
+        <div class="popup-tags">
+          ${b.dias.map(d=>`<span class="popup-tag" style="background:#E8F5E9;color:#2E7D32">${escAttr(d)}</span>`).join('')}
+          <span class="popup-tag" style="background:#E3F2FD;color:#1565C0">${escAttr(b.modalidad)}</span>
+        </div>`);
+      marker.on('click',e=>map.flyTo(e.latlng,15,{duration:1.5}));
+      markerCluster.addLayer(marker);
+    });
+  });
+}
+
+function selectBenefit(id) {
+  selectedId=(selectedId===id)?null:id;
+  render();
+  if(selectedId){const card=document.querySelector(`.benefit-card[data-id="${id}"]`);if(card)card.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT APP (llamado al seleccionar banco)
+// ══════════════════════════════════════════════════════════════════════════════
+async function initApp() {
+  const bar=document.getElementById('loadingBar');
+  const errBanner=document.getElementById('error-banner');
+  errBanner.classList.remove('show'); errBanner.textContent='';
+  sucCache = loadCache(activeBank.name);
+  try {
+    beneficios = await activeBank.fetchAll((pct, label) => {
+      bar.style.width=(pct*100)+'%';
+      document.getElementById('loadingMsg').textContent=label;
+    });
+    bar.style.width='100%';
+
+    // Poblar select de categorías
+    const cats=[...new Set(beneficios.flatMap(b=>b.categorias))].sort();
+    const sel=document.getElementById('filterCategoria');
+    sel.innerHTML='<option value="">Todas las categorías</option>';
+    cats.forEach(c=>{const opt=document.createElement('option');opt.value=c;opt.textContent=c;sel.appendChild(opt);});
+
+    // Header subtitle
+    const now=new Date();
+    document.getElementById('headerSub').textContent=
+      now.toLocaleDateString('es-CL',{month:'long',year:'numeric'})+' · '+beneficios.length+' beneficios';
+
+    // Mostrar UI
+    setTimeout(()=>{
+      const ls=document.getElementById('loading-screen');
+      ls.classList.add('fade-out');
+      setTimeout(()=>{
+        ls.style.display='none';
+        ls.classList.remove('fade-out');
+        bar.style.width='0%';
+        ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList'].forEach(id=>{
+          document.getElementById(id).style.display='';
+        });
+        // carouselToggle y cardList usan flex/block por defecto
+        document.getElementById('carouselToggle').style.display='flex';
+        document.getElementById('cardList').style.display='flex';
+        document.getElementById('btnMyLocation').style.display='flex';
+      },400);
+    },300);
+
+    render();
+
+    // Geocodificación en background (una llamada por marca única)
+    const seen={};
+    beneficios.forEach(b=>{
+      if(!b.brand_name||seen[b.brand_name]) return; seen[b.brand_name]=1;
+      fetchSucursalesOSM(b.brand_name).then(locs=>{
+        beneficios.filter(x=>x.brand_name===b.brand_name).forEach(ben=>mergeSucursales(ben,locs));
+        render();
+      });
+    });
+
+  } catch(err) {
+    console.error('[BeneficiosMap]',err);
+    const ls=document.getElementById('loading-screen');
+    ls.classList.add('fade-out');
+    setTimeout(()=>{ls.style.display='none';ls.classList.remove('fade-out');},400);
+    errBanner.textContent='⚠️ '+err.message;
+    errBanner.classList.add('show');
+    ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList'].forEach(id=>{
+      document.getElementById(id).style.display='';
+    });
+    document.getElementById('carouselToggle').style.display='flex';
+    document.getElementById('cardList').style.display='flex';
+    document.getElementById('btnMyLocation').style.display='flex';
+    render();
+  }
+}
+</script>
+</body>
+</html>
