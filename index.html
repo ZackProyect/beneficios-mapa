@@ -779,7 +779,7 @@ function createIcon(b) {
 // OSM GEOCODING (Photon → Nominatim, cache 24h)
 // ══════════════════════════════════════════════════════════════════════════════
 let sucCache = {};
-const CACHE_KEY_PREFIX = 'beneficios_osm_v2_';
+const CACHE_KEY_PREFIX = 'beneficios_osm_v3_';
 const CACHE_TTL = 24*60*60*1000;
 
 function loadCache(bankId) {
@@ -812,6 +812,8 @@ function fetchSucursalesOSM(brandName, bounds) {
       if (!f.geometry?.coordinates) return;
       const [lng,lat]=f.geometry.coordinates;
       if (lat<fb.s||lat>fb.n||lng<fb.w||lng>fb.e) return;
+      const cc=(f.properties?.countrycode||f.properties?.country_code||'').toLowerCase();
+      if (cc && cc!=='cl') return;
       const name=(f.properties?.name||'').toLowerCase();
       if (!name.includes(bLow)&&!bLow.includes(name)&&!name.includes(firstWord)) return;
       const k=lat.toFixed(4)+','+lng.toFixed(4);
