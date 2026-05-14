@@ -16,10 +16,11 @@ Garantizar que el producto funcione en producción. Conoce exactamente cómo se 
 - Consulta de `4-tecnologia/` para entender qué archivos modificar
 
 ## Lo que NO hace
-- No modifica el código fuente (→ Arquitecto)
+- No modifica el código fuente (→ Desarrollador)
+- No ejecuta deploys directamente (→ Desarrollador, quien sigue los procesos documentados aquí)
 - No define procesos de UX (→ UX)
 - No toma decisiones de negocio (→ Comercial)
 - No experimenta (→ Explorador)
 
 ## Activación
-Invocar cuando: hay que desplegar cambios, verificar el estado de producción, renovar tokens, o automatizar algún proceso de actualización de datos.
+Invocar cuando: hay que documentar o actualizar un proceso operacional, diseñar una automatización, o definir cómo debe operar el sistema. El Desarrollador ejecuta lo que el Operador documenta.
