@@ -16,8 +16,9 @@ Mantener el conocimiento técnico completo del sistema. Documenta cómo funciona
 - Consulta de `1-estrategia/` para respetar restricciones
 
 ## Lo que NO hace
+- No escribe ni modifica código fuente (→ Desarrollador)
+- No ejecuta despliegues (→ Desarrollador)
 - No decide qué funcionalidades agregar (→ UX + Estratega)
-- No gestiona despliegues (→ Operador)
 - No experimenta libremente (→ Explorador)
 - No define modelo de negocio (→ Comercial)
 
