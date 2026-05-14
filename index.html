@@ -15,51 +15,81 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    /* ── VARIABLES DE TEMA (se sobreescriben al seleccionar banco) ─────────── */
     :root {
       --primary:       #003DA5;
       --primary-dark:  #001F5C;
       --primary-light: #E8F0FB;
-      --primary-btn:   #003DA5;
       --badge-dcto-bg: #00ADEF;
     }
-
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{height:100%;overflow:hidden}
     body{font-family:'Nunito',sans-serif;background:#f5f5f5}
 
-    /* ── PANTALLA SELECCIÓN DE BANCO ────────────────────────────────────────── */
+    /* ── PANTALLA SELECCIÓN BANCO v2 ─────────────────────────────────────────── */
     #bank-select-screen{
       position:fixed;inset:0;z-index:10000;
       background:linear-gradient(160deg,#0f1923 0%,#1a2a3a 100%);
       display:flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:24px;gap:32px
+      padding:24px;gap:20px;overflow-y:auto
     }
     .bs-title{color:#fff;font-size:22px;font-weight:800;text-align:center;line-height:1.3}
-    .bs-subtitle{color:rgba(255,255,255,.6);font-size:13px;text-align:center;margin-top:-20px}
-    .bs-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:380px}
-    .bs-card:nth-child(3){grid-column:1/-1;max-width:160px;justify-self:center}
-    .bs-card{
-      flex:1;background:#fff;border-radius:18px;padding:28px 16px 22px;
-      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:14px;
-      box-shadow:0 8px 32px rgba(0,0,0,.3);transition:transform .18s,box-shadow .18s;
-      border:3px solid transparent
+    .bs-subtitle{color:rgba(255,255,255,.6);font-size:13px;text-align:center;margin-top:-10px}
+    .bs-checklist{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px}
+    .bs-check-item{
+      display:flex;align-items:center;gap:14px;
+      background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);
+      border-radius:16px;padding:14px 16px;cursor:pointer;transition:all .18s;
+      -webkit-tap-highlight-color:transparent
     }
-    .bs-card:hover{transform:translateY(-4px);box-shadow:0 14px 40px rgba(0,0,0,.4)}
-    .bs-card:active{transform:scale(.97)}
-    .bs-card.bci{border-color:#003DA5}
-    .bs-card.santander{border-color:#EC0000}
-    .bs-card.bancochile{border-color:#CC0000}
-    .bs-logo.bancochile{background:linear-gradient(135deg,#880000,#CC0000)}
-    .bs-logo{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-    .bs-logo.bci{background:linear-gradient(135deg,#001F5C,#003DA5)}
-    .bs-logo.santander{background:linear-gradient(135deg,#8B0000,#EC0000)}
-    .bs-logo-text{font-size:22px;font-weight:900;color:#fff;letter-spacing:-1px}
-    .bs-logo-text.santander{font-size:13px;letter-spacing:.5px}
-    .bs-bank-name{font-size:15px;font-weight:800;color:#1a1a1a}
-    .bs-bank-desc{font-size:11px;color:#888;text-align:center;line-height:1.4}
+    .bs-check-item.checked{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.4)}
+    .bs-check-logo{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .bs-check-logo.bci{background:linear-gradient(135deg,#001F5C,#003DA5)}
+    .bs-check-logo.santander{background:linear-gradient(135deg,#8B0000,#EC0000)}
+    .bs-check-logo.bancochile{background:linear-gradient(135deg,#880000,#CC0000)}
+    .bs-logo-text{font-size:14px;font-weight:900;color:#fff;letter-spacing:-0.5px}
+    .bs-logo-text.santander{font-size:9px;letter-spacing:.5px}
+    .bs-check-info{flex:1}
+    .bs-bank-name{font-size:15px;font-weight:800;color:#fff}
+    .bs-bank-desc{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px}
+    .bs-checkbox{
+      width:24px;height:24px;border-radius:7px;border:2px solid rgba(255,255,255,.3);
+      background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      font-size:14px;color:#fff;transition:all .18s
+    }
+    .bs-check-item.checked .bs-checkbox{background:#4CAF50;border-color:#4CAF50}
+    .bs-cta{
+      width:100%;max-width:380px;padding:15px;
+      background:linear-gradient(135deg,#003DA5,#0052CC);color:#fff;border:none;
+      border-radius:14px;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;
+      transition:opacity .18s;box-shadow:0 4px 18px rgba(0,61,165,.5)
+    }
+    .bs-cta:disabled{opacity:.4;cursor:not-allowed}
+    .bs-login-link{color:rgba(255,255,255,.45);font-size:12px;text-align:center}
+    .bs-login-link a{color:rgba(255,255,255,.7);text-decoration:underline;cursor:pointer}
 
-    /* ── LOADING ────────────────────────────────────────────────────────────── */
+    /* ── PANTALLA LOGIN ──────────────────────────────────────────────────────── */
+    #login-screen{
+      position:fixed;inset:0;z-index:10001;
+      background:linear-gradient(160deg,#0f1923 0%,#1a2a3a 100%);
+      display:none;flex-direction:column;align-items:center;justify-content:center;
+      padding:32px;gap:20px
+    }
+    .login-logo{font-size:52px}
+    .login-title{color:#fff;font-size:22px;font-weight:800;text-align:center}
+    .login-subtitle{color:rgba(255,255,255,.6);font-size:13px;text-align:center;margin-top:-10px;line-height:1.6}
+    .btn-google{
+      display:flex;align-items:center;gap:12px;
+      background:#fff;color:#333;border:none;border-radius:12px;
+      padding:13px 24px;font-family:inherit;font-size:15px;font-weight:700;
+      cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .15s;
+      width:100%;max-width:320px;justify-content:center
+    }
+    .btn-google:active{transform:scale(.97)}
+    .btn-google-logo{width:22px;height:22px;flex-shrink:0}
+    .login-skip{color:rgba(255,255,255,.55);font-size:13px;cursor:pointer;text-decoration:underline}
+    .login-back{color:rgba(255,255,255,.4);font-size:12px;cursor:pointer}
+
+    /* ── LOADING ─────────────────────────────────────────────────────────────── */
     #loading-screen{
       position:fixed;inset:0;z-index:9999;
       background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);
@@ -74,10 +104,10 @@
     .loading-bar{height:100%;background:#fff;border-radius:3px;width:0%;transition:width .3s}
     .loading-msg{font-size:11px;opacity:.6;margin-top:10px}
 
-    /* ── MAPA ───────────────────────────────────────────────────────────────── */
+    /* ── MAPA ─────────────────────────────────────────────────────────────────── */
     #map{position:fixed;inset:0;z-index:1}
 
-    /* ── HEADER ─────────────────────────────────────────────────────────────── */
+    /* ── HEADER ──────────────────────────────────────────────────────────────── */
     .mobile-header{
       position:fixed;top:0;left:0;right:0;z-index:1000;
       background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);
@@ -98,8 +128,15 @@
       background:#fff;color:var(--primary);border:none;border-radius:20px;
       padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer
     }
+    .btn-user{
+      width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,.5);
+      background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:800;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+      overflow:hidden;padding:0;font-family:inherit
+    }
+    .btn-user img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 
-    /* ── BUSCADOR ───────────────────────────────────────────────────────────── */
+    /* ── BUSCADOR ────────────────────────────────────────────────────────────── */
     .search-float{
       position:fixed;top:calc(70px + env(safe-area-inset-top));left:12px;right:12px;
       z-index:1000;display:flex;gap:8px;align-items:center
@@ -117,7 +154,7 @@
     .pin-btn.active{background:var(--primary)}
     .pin-btn.active span{filter:brightness(10)}
 
-    /* ── AREA BTN ───────────────────────────────────────────────────────────── */
+    /* ── AREA BTN ────────────────────────────────────────────────────────────── */
     .area-btn{
       position:fixed;top:calc(118px + env(safe-area-inset-top));right:12px;z-index:999;
       background:var(--primary);color:#fff;border:none;border-radius:20px;
@@ -134,7 +171,7 @@
     .area-btn.loading .icon{display:none}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    /* ── BUSCAR DIRECCIÓN ───────────────────────────────────────────────────── */
+    /* ── BUSCAR DIRECCIÓN ────────────────────────────────────────────────────── */
     .addr-float{
       position:fixed;top:calc(116px + env(safe-area-inset-top));left:12px;right:12px;
       z-index:1000;display:none;flex-direction:column;gap:4px
@@ -149,7 +186,7 @@
     .addr-item{padding:10px 14px;font-size:13px;color:#333;border-bottom:1px solid #f0f0f0;cursor:pointer}
     .addr-item:active{background:#f0f0f0}
 
-    /* ── FILTER SHEET ───────────────────────────────────────────────────────── */
+    /* ── FILTER SHEET ────────────────────────────────────────────────────────── */
     .filter-overlay{
       position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;
       display:none;opacity:0;transition:opacity .25s
@@ -173,13 +210,16 @@
       cursor:pointer;border:1.5px solid #ddd;background:#fff;transition:all .15s
     }
     .chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .chip.bci-chip.active{background:#003DA5;border-color:#003DA5}
+    .chip.santander-chip.active{background:#EC0000;border-color:#EC0000}
+    .chip.bancochile-chip.active{background:#CC0000;border-color:#CC0000}
     .btn-aplicar{
       width:100%;padding:12px;background:var(--primary);color:#fff;border:none;
       border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;margin-top:10px;cursor:pointer
     }
     #distNoLocation{display:none;font-size:11px;color:#856404;background:#fff3cd;border-radius:8px;padding:6px 10px;margin-top:6px}
 
-    /* ── CAROUSEL TOGGLE ────────────────────────────────────────────────────── */
+    /* ── CAROUSEL TOGGLE ─────────────────────────────────────────────────────── */
     .carousel-toggle{
       position:fixed;bottom:178px;left:50%;transform:translateX(-50%);
       z-index:1000;background:var(--primary);color:#fff;border:none;border-radius:20px;
@@ -191,7 +231,7 @@
     .carousel-toggle .arrow{transition:transform .3s ease;display:inline-block}
     .carousel-toggle.collapsed .arrow{transform:rotate(180deg)}
 
-    /* ── CARDS CAROUSEL ─────────────────────────────────────────────────────── */
+    /* ── CARDS CAROUSEL ──────────────────────────────────────────────────────── */
     .card-carousel{
       position:fixed;bottom:0;left:0;right:0;z-index:999;
       padding:10px;padding-bottom:max(10px,env(safe-area-inset-bottom));
@@ -228,18 +268,20 @@
     .tag-loc{background:#FFF3E0;color:#E65100}
     .tag-online{background:#F3E5F5;color:#6A1B9A}
     .tag-dist{background:var(--primary-light);color:var(--primary);font-weight:700}
+    .tag-banco{color:#fff;font-weight:700}
 
-    /* ── MARCADORES ─────────────────────────────────────────────────────────── */
+    /* ── MARCADORES ──────────────────────────────────────────────────────────── */
     .custom-icon{background:none;border:none}
     .marker-circle{
       box-sizing:border-box;background:#fff;border-radius:50%;width:44px;height:44px;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 2px 8px rgba(0,0,0,.3);overflow:hidden;padding:3px
+      box-shadow:0 2px 8px rgba(0,0,0,.3);overflow:hidden;padding:3px;
+      border:3px solid var(--primary)
     }
     .marker-circle img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
     .marker-fallback{font-family:'Nunito',sans-serif;font-size:8px;font-weight:800;color:var(--primary);text-align:center;line-height:1.1}
 
-    /* ── PANEL MARCADOR ─────────────────────────────────────────────────────── */
+    /* ── PANEL MARCADOR ──────────────────────────────────────────────────────── */
     #markerPanel{
       position:fixed;bottom:0;left:0;right:0;z-index:2500;
       background:#fff;border-radius:20px 20px 0 0;
@@ -263,14 +305,44 @@
     .mp-tag{padding:3px 7px;border-radius:5px;font-size:10px;font-weight:600}
     .mp-handle{width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 14px}
 
-    /* ── UBICACIÓN USUARIO ──────────────────────────────────────────────────── */
+    /* ── PANEL PERFIL ────────────────────────────────────────────────────────── */
+    .profile-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2999;display:none}
+    .profile-overlay.open{display:block}
+    #profilePanel{
+      position:fixed;bottom:0;left:0;right:0;z-index:3000;
+      background:#fff;border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,.2);
+      padding:16px;padding-bottom:max(20px,env(safe-area-inset-bottom));
+      transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+      max-height:80vh;overflow-y:auto
+    }
+    #profilePanel.open{transform:translateY(0)}
+    .profile-header{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+    .profile-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #eee;flex-shrink:0}
+    .profile-avatar-fallback{
+      width:52px;height:52px;border-radius:50%;background:var(--primary);
+      display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;
+      flex-shrink:0;font-weight:800;font-family:inherit
+    }
+    .profile-name{font-size:16px;font-weight:800;color:#111}
+    .profile-email{font-size:11px;color:#888;margin-top:2px}
+    .profile-section-title{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+    .profile-bank-checks{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+    .profile-bank-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1.5px solid #eee;cursor:pointer}
+    .profile-bank-item input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+    .profile-bank-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+    .profile-bank-name{font-size:14px;font-weight:700;color:#333;flex:1;cursor:pointer}
+    .btn-save-profile{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px}
+    .btn-logout{width:100%;padding:11px;background:#fff;color:#d32f2f;border:1.5px solid #d32f2f;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+
+    /* ── UBICACIÓN USUARIO ───────────────────────────────────────────────────── */
     .user-location{position:relative;display:flex;flex-direction:column;align-items:center}
     .user-dot{width:14px;height:14px;background:#4285F4;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(66,133,244,.5);z-index:2;position:relative}
     .user-pulse{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;background:rgba(66,133,244,.25);border-radius:50%;z-index:1;animation:pulse 2s ease-out infinite}
     @keyframes pulse{0%{width:14px;height:14px;opacity:1}100%{width:60px;height:60px;opacity:0}}
     .user-label{margin-top:4px;background:#4285F4;color:#fff;font-family:'Nunito',sans-serif;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
-    /* ── BOTÓN MI UBICACIÓN ─────────────────────────────────────────────────── */
+    /* ── BOTÓN MI UBICACIÓN ──────────────────────────────────────────────────── */
     #btnMyLocation{
       position:fixed;bottom:120px;right:12px;z-index:999;
       width:42px;height:42px;border-radius:50%;background:#fff;border:none;
@@ -292,7 +364,7 @@
     #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     #toast.error{background:#d32f2f}
 
-    /* ── ERROR ──────────────────────────────────────────────────────────────── */
+    /* ── ERROR ───────────────────────────────────────────────────────────────── */
     #error-banner{
       position:fixed;bottom:205px;left:12px;right:12px;z-index:1001;
       background:#fff3cd;border:1px solid #ffc107;border-radius:10px;
@@ -303,61 +375,87 @@
 </head>
 <body>
 
-<!-- ── PANTALLA SELECCIÓN DE BANCO ─────────────────────────────────────────── -->
+<!-- ── PANTALLA SELECCIÓN DE BANCO v2 ────────────────────────────────────────── -->
 <div id="bank-select-screen">
-  <div class="bs-title">¿Con qué banco deseas<br>ver beneficios?</div>
-  <div class="bs-subtitle">Selecciona tu banco para cargar sus descuentos y promociones</div>
-  <div class="bs-cards">
+  <div class="bs-title">¿Qué beneficios quieres ver?</div>
+  <div class="bs-subtitle">Selecciona uno o más bancos</div>
 
-    <div class="bs-card bci" onclick="selectBank('bci')">
-      <div class="bs-logo bci">
-        <span class="bs-logo-text">Bci</span>
+  <div class="bs-checklist">
+    <div class="bs-check-item" id="bsItem-bci" onclick="toggleBankCheck('bci')">
+      <div class="bs-check-logo bci"><span class="bs-logo-text">Bci</span></div>
+      <div class="bs-check-info">
+        <div class="bs-bank-name">Banco Bci</div>
+        <div class="bs-bank-desc">Descuentos y cashback con tarjetas Bci</div>
       </div>
-      <div class="bs-bank-name">Banco Bci</div>
-      <div class="bs-bank-desc">Descuentos y cashback con tarjetas Bci</div>
+      <div class="bs-checkbox" id="chkBoxBci"></div>
     </div>
 
-    <div class="bs-card santander" onclick="selectBank('santander')">
-      <div class="bs-logo santander">
-        <span class="bs-logo-text santander">SANTANDER</span>
+    <div class="bs-check-item" id="bsItem-bancochile" onclick="toggleBankCheck('bancochile')">
+      <div class="bs-check-logo bancochile"><span class="bs-logo-text">BCH</span></div>
+      <div class="bs-check-info">
+        <div class="bs-bank-name">Banco de Chile</div>
+        <div class="bs-bank-desc">Descuentos con tarjetas Visa del Chile</div>
       </div>
-      <div class="bs-bank-name">Santander</div>
-      <div class="bs-bank-desc">Promociones y beneficios Santander Chile</div>
+      <div class="bs-checkbox" id="chkBoxBancochile"></div>
     </div>
 
-    <div class="bs-card bancochile" onclick="selectBank('bancochile')">
-      <div class="bs-logo bancochile">
-        <span class="bs-logo-text">BCH</span>
+    <div class="bs-check-item" id="bsItem-santander" onclick="toggleBankCheck('santander')">
+      <div class="bs-check-logo santander"><span class="bs-logo-text santander">SANTANDER</span></div>
+      <div class="bs-check-info">
+        <div class="bs-bank-name">Santander</div>
+        <div class="bs-bank-desc">Promociones y beneficios Santander Chile</div>
       </div>
-      <div class="bs-bank-name">Banco de Chile</div>
-      <div class="bs-bank-desc">Descuentos con tarjetas Visa del Chile</div>
+      <div class="bs-checkbox" id="chkBoxSantander"></div>
     </div>
+  </div>
 
+  <button class="bs-cta" id="bsCtaBtn" onclick="confirmarSeleccionBancos()" disabled>Ver beneficios</button>
+  <div class="bs-login-link">
+    <a onclick="mostrarLogin()">Inicia sesión para guardar tus preferencias</a>
   </div>
 </div>
 
-<!-- ── LOADING ──────────────────────────────────────────────────────────────── -->
+<!-- ── PANTALLA LOGIN ─────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-logo">🏦</div>
+  <div class="login-title">Guarda tus preferencias</div>
+  <div class="login-subtitle">Inicia sesión para recordar<br>tus bancos favoritos</div>
+  <button class="btn-google" onclick="loginConGoogle()">
+    <svg class="btn-google-logo" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.6 2.9 13.7l7.9 6.1C12.6 13.3 17.9 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.9 24.6c0-1.6-.1-3.2-.4-4.6H24v8.7h12.9c-.6 3-2.4 5.5-4.9 7.2l7.6 5.9c4.5-4.2 7.3-10.4 7.3-17.2z"/>
+      <path fill="#FBBC05" d="M10.8 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6L2.4 13.3A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.4 10.7l8.4-6.1z"/>
+      <path fill="#34A853" d="M24 48c6.2 0 11.3-2 15.1-5.4l-7.6-5.9c-2 1.4-4.6 2.3-7.5 2.3-6.1 0-11.4-3.8-13.2-9.2l-8 6.1C6.5 42.3 14.6 48 24 48z"/>
+    </svg>
+    Continuar con Google
+  </button>
+  <div class="login-skip" onclick="mostrarSeleccionBancos()">Continuar sin cuenta →</div>
+  <div class="login-back" onclick="mostrarSeleccionBancos()">← Volver</div>
+</div>
+
+<!-- ── LOADING ───────────────────────────────────────────────────────────────── -->
 <div id="loading-screen" style="display:none">
   <div class="loading-logo" id="loadingEmoji">🏦</div>
   <div class="loading-title" id="loadingTitle">Cargando...</div>
-  <div class="loading-subtitle" id="loadingSubtitle">Conectando con la API...</div>
+  <div class="loading-subtitle" id="loadingSubtitle">Conectando con las APIs...</div>
   <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
   <div class="loading-msg" id="loadingMsg">Iniciando...</div>
 </div>
 
-<!-- ── HEADER ───────────────────────────────────────────────────────────────── -->
+<!-- ── HEADER ────────────────────────────────────────────────────────────────── -->
 <div class="mobile-header" id="mainHeader" style="display:none">
   <div style="flex:1">
     <div class="header-logo" id="headerLogo">Beneficios</div>
     <div class="header-sub" id="headerSub">Cargando...</div>
   </div>
   <div class="header-actions">
-    <button class="btn-cambiar-banco" onclick="cambiarBanco()">⇄ Banco</button>
+    <button class="btn-cambiar-banco" onclick="cambiarBanco()">⇄ Bancos</button>
     <button class="btn-filtros" onclick="toggleFilters()">Filtros</button>
+    <button class="btn-user" id="btnUser" onclick="toggleProfile()">👤</button>
   </div>
 </div>
 
-<!-- ── BUSCADOR ─────────────────────────────────────────────────────────────── -->
+<!-- ── BUSCADOR ──────────────────────────────────────────────────────────────── -->
 <div class="search-float" id="searchFloat" style="display:none">
   <input type="text" id="filterBuscar" placeholder="Buscar beneficio o comercio...">
   <button class="pin-btn" id="pinBtn" onclick="toggleAddrSearch()"><span>📍</span></button>
@@ -367,14 +465,14 @@
   <div class="addr-results" id="addrResults"></div>
 </div>
 
-<!-- ── BOTÓN ÁREA ────────────────────────────────────────────────────────────── -->
+<!-- ── BOTÓN ÁREA ─────────────────────────────────────────────────────────────── -->
 <button class="area-btn" id="areaBtn" onclick="searchInVisibleArea()" style="display:none">
   <span class="icon">🔍</span>
   <span class="spinner"></span>
   <span class="label">Buscar en esta área</span>
 </button>
 
-<!-- ── MAPA ─────────────────────────────────────────────────────────────────── -->
+<!-- ── MAPA ──────────────────────────────────────────────────────────────────── -->
 <div id="map"></div>
 
 <!-- ── PANEL MARCADOR ────────────────────────────────────────────────────────── -->
@@ -394,31 +492,40 @@
   <div class="mp-tags" id="mpTags"></div>
 </div>
 
-<!-- ── BOTÓN MI UBICACIÓN ───────────────────────────────────────────────────── -->
+<!-- ── BOTÓN MI UBICACIÓN ────────────────────────────────────────────────────── -->
 <button id="btnMyLocation" onclick="requestMyLocation()" title="Mi ubicación">
   <span>📍</span>
 </button>
 
-<!-- ── TOAST ────────────────────────────────────────────────────────────────── -->
+<!-- ── TOAST ─────────────────────────────────────────────────────────────────── -->
 <div id="toast"></div>
 
-<!-- ── ERROR ────────────────────────────────────────────────────────────────── -->
+<!-- ── ERROR ─────────────────────────────────────────────────────────────────── -->
 <div id="error-banner"></div>
 
-<!-- ── TOGGLE + CONTADOR ────────────────────────────────────────────────────── -->
+<!-- ── TOGGLE + CONTADOR ──────────────────────────────────────────────────────── -->
 <button class="carousel-toggle" id="carouselToggle" onclick="toggleCarousel()" style="display:none">
   <span class="arrow">▼</span>
   <span id="resultsCount">Cargando...</span>
 </button>
 
-<!-- ── CARRUSEL ─────────────────────────────────────────────────────────────── -->
+<!-- ── CARRUSEL ──────────────────────────────────────────────────────────────── -->
 <div class="card-carousel" id="cardList" style="display:none"></div>
 
-<!-- ── FILTER SHEET ──────────────────────────────────────────────────────────── -->
+<!-- ── FILTER SHEET ───────────────────────────────────────────────────────────── -->
 <div class="filter-overlay" id="filterOverlay" onclick="toggleFilters()"></div>
 <div class="filter-sheet" id="filterSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-title">Filtros</div>
+
+  <div class="filter-group" id="filterBancoGroup" style="display:none">
+    <label>Banco</label>
+    <div class="filter-chips" id="filterBanco">
+      <div class="chip bci-chip" data-banco="bci">Bci</div>
+      <div class="chip bancochile-chip" data-banco="bancochile">Chile</div>
+      <div class="chip santander-chip" data-banco="santander">Santander</div>
+    </div>
+  </div>
 
   <div class="filter-group">
     <label>Categoría</label>
@@ -469,50 +576,66 @@
   <button class="btn-aplicar" onclick="toggleFilters()">Aplicar filtros</button>
 </div>
 
+<!-- ── PANEL PERFIL ───────────────────────────────────────────────────────────── -->
+<div class="profile-overlay" id="profileOverlay" onclick="closeProfile()"></div>
+<div id="profilePanel">
+  <div class="mp-handle"></div>
+  <div id="profileContent"></div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc }
+  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIREBASE
+// ══════════════════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyCHTdX5LIwHyV_cgSKaUr1gvBqOaX5jcfU",
+  authDomain:        "mymapbenefits.firebaseapp.com",
+  projectId:         "mymapbenefits",
+  storageBucket:     "mymapbenefits.firebasestorage.app",
+  messagingSenderId: "28828746617",
+  appId:             "1:28828746617:web:af69138c0b0858a778e5a8"
+};
+const fbApp    = initializeApp(firebaseConfig);
+const auth     = getAuth(fbApp);
+const db       = getFirestore(fbApp);
+const provider = new GoogleAuthProvider();
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIGURACIÓN DE BANCOS
 // ══════════════════════════════════════════════════════════════════════════════
 const BANK_CONFIGS = {
   bci: {
-    name: 'Bci',
-    fullName: 'Banco Bci',
-    emoji: '🔵',
-    primary:      '#003DA5',
-    primaryDark:  '#001F5C',
-    primaryLight: '#E8F0FB',
-    badgeDcto:    '#00ADEF',
-    apiHeaders:   { 'ocp-apim-subscription-key': 'fa981752762743668413b68821a43840' },
-    fetchAll:     fetchBCI,
-    logoHtml:     'B<span class="accent">ci</span> Beneficios'
+    name: 'Bci', fullName: 'Banco Bci', emoji: '🔵',
+    primary: '#003DA5', primaryDark: '#001F5C', primaryLight: '#E8F0FB', badgeDcto: '#00ADEF',
+    apiHeaders: { 'ocp-apim-subscription-key': 'fa981752762743668413b68821a43840' },
+    fetchAll: fetchBCI,
+    logoHtml: 'B<span class="accent">ci</span> Beneficios'
   },
   santander: {
-    name: 'Santander',
-    fullName: 'Banco Santander',
-    emoji: '🔴',
-    primary:      '#EC0000',
-    primaryDark:  '#8B0000',
-    primaryLight: '#FFEBEB',
-    badgeDcto:    '#FF6B35',
-    apiHeaders:   {},
-    fetchAll:     fetchSantander,
-    logoHtml:     'Santander <span class="accent">Beneficios</span>'
+    name: 'Santander', fullName: 'Banco Santander', emoji: '🔴',
+    primary: '#EC0000', primaryDark: '#8B0000', primaryLight: '#FFEBEB', badgeDcto: '#FF6B35',
+    apiHeaders: {},
+    fetchAll: fetchSantander,
+    logoHtml: 'Santander <span class="accent">Beneficios</span>'
   },
   bancochile: {
-    name: 'Banco de Chile',
-    fullName: 'Banco de Chile',
-    emoji: '🏦',
-    primary:      '#CC0000',
-    primaryDark:  '#880000',
-    primaryLight: '#FFF0F0',
-    badgeDcto:    '#FF6B00',
-    apiHeaders:   {},
-    fetchAll:     fetchBancoChile,
-    logoHtml:     'Banco de <span class="accent">Chile</span>'
+    name: 'Banco de Chile', fullName: 'Banco de Chile', emoji: '🏦',
+    primary: '#CC0000', primaryDark: '#880000', primaryLight: '#FFF0F0', badgeDcto: '#FF6B00',
+    apiHeaders: {},
+    fetchAll: fetchBancoChile,
+    logoHtml: 'Banco de <span class="accent">Chile</span>'
   }
 };
+
+const MULTI_THEME = { primary:'#1a3a5c', primaryDark:'#0f1f30', primaryLight:'#e8f2f8', badgeDcto:'#2196F3' };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -531,8 +654,7 @@ const CAT_EMOJI = {
   restaurante:'🍽️',gastronom:'🍽️',comida:'🍽️',cafe:'☕',sabores:'🍽️',
   viaje:'✈️',hotel:'🏨',turismo:'✈️',
   retail:'🛍️',ropa:'👗',moda:'👗',tienda:'🛍️',
-  salud:'💊',farmacia:'💊',
-  belleza:'💄',
+  salud:'💊',farmacia:'💊',belleza:'💄',
   entretenim:'🎭',cine:'🎬',teatro:'🎭',
   deport:'⚽',fitness:'🏋️',
   tecnolog:'💻',electron:'📱',
@@ -561,14 +683,14 @@ async function fetchBCI(onProgress) {
     return r.json();
   });
   const totalPages = first.paginado?.totalPaginas || 1;
-  onProgress(1/totalPages, `Página 1 de ${totalPages}`);
+  onProgress(1/totalPages, `BCI: página 1 de ${totalPages}`);
   let all = first.ofertas.map(mapBCIOffer);
   if (totalPages > 1) {
     const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
     const results = await Promise.all(pages.map(p =>
       fetch(`${BASE}?itemsPorPagina=100&pagina=${p}`, { headers: HDRS })
         .then(r => r.json())
-        .then(d => { onProgress(p/totalPages, `Página ${p} de ${totalPages}`); return d.ofertas.map(mapBCIOffer); })
+        .then(d => { onProgress(p/totalPages, `BCI: página ${p} de ${totalPages}`); return d.ofertas.map(mapBCIOffer); })
     ));
     results.forEach(r => { all = all.concat(r); });
   }
@@ -594,7 +716,8 @@ function mapBCIOffer(o) {
     descripcion: o.subtitulo || (o.descripcion||'').substring(0,140),
     dias, recurrenceLabel: o.scheduling?.recurrenceLabel||'',
     modalidad, vigencia: o.fechaTermino ? new Date(o.fechaTermino).toLocaleDateString('es-CL') : null,
-    imagen: o.imagenes?.imagen1||null, logo: o.imagenes?.imagen4||o.imagenes?.imagen1||null, link: o.link||null, sucursales: []
+    imagen: o.imagenes?.imagen1||null, logo: o.imagenes?.imagen4||o.imagenes?.imagen1||null,
+    link: o.link||null, sucursales: []
   };
 }
 
@@ -608,14 +731,14 @@ function cleanBrand(name) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchSantander(onProgress) {
   const URL = 'https://banco.santander.cl/beneficios/promociones.json?per_page=9999&tags=home-disfrutadores&custom_fields=true&order_by=updated_at&desc=true&hash=151';
-  onProgress(0.3, 'Cargando promociones...');
+  onProgress(0.3, 'Santander: cargando promociones...');
   const data = await fetch(URL).then(r => {
     if (!r.ok) throw new Error(`Santander API: HTTP ${r.status}. Visita banco.santander.cl primero e intenta nuevamente.`);
     return r.json();
   });
-  onProgress(0.8, 'Procesando beneficios...');
+  onProgress(0.8, 'Santander: procesando...');
   const result = (data.promociones || []).map(mapSantanderOffer);
-  onProgress(1, 'Listo');
+  onProgress(1, 'Santander: listo');
   return result;
 }
 
@@ -638,10 +761,8 @@ function mapSantanderOffer(p) {
   const cf = p.custom_fields || {};
   const bajada  = cf['Bajada externa']?.value || cf['Bajada interna']?.value || '';
   const vigencia = cf['Vigencia']?.value || null;
-
   const catTag = (p.tags||[]).find(t => t.startsWith('cat-'));
   const categoria = catTag ? (SANT_CAT_MAP[catTag] || catTag.replace('cat-','').replace(/-/g,' ')) : 'Beneficio';
-
   const dias = [], seen = {};
   let recurrenceLabel = '';
   (p.tags||[]).forEach(t => {
@@ -650,22 +771,17 @@ function mapSantanderOffer(p) {
     if (t === 'todos-los-dias') { recurrenceLabel = 'Todos los días'; return; }
     if (!seen[d]) { seen[d]=1; dias.push(d); }
   });
-
   const discMatch = bajada.match(/(\d+%)/);
   const descuento = discMatch ? discMatch[1] : '';
-
   const descLow = stripHtml(p.description||'').toLowerCase();
   const isOnline     = descLow.includes('online') || descLow.includes('cupón') || descLow.includes('código') || (cf['Sitio web beneficio']?.value||'').length > 3;
   const isPresencial = descLow.includes('locales') || descLow.includes('presencial') || !!p.location_street;
   let modalidad = isPresencial && isOnline ? 'Presencial y Online' : isOnline ? 'Online' : isPresencial ? 'Presencial' : 'General';
-
   const tipo = (descuento || bajada.toLowerCase().includes('dcto')) ? 'DISCOUNT'
              : bajada.toLowerCase().includes('cashback') ? 'CASHBACK' : 'PROMO';
-
   const sucursales = (p.latitude && p.longitude)
     ? [{ lat: +p.latitude, lng: +p.longitude, nombre: p.title||'', direccion: p.location_street||'' }]
     : [];
-
   return {
     id: String(p.id), brand_name: p.title||null,
     nombre: p.title||'', subtitulo: bajada, icono: getCategoryEmoji(categoria),
@@ -683,7 +799,7 @@ function mapSantanderOffer(p) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchBancoChile(onProgress) {
   const BASE = 'https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types/beneficios/entries';
-  onProgress(0.1, 'Cargando página 1...');
+  onProgress(0.1, 'Banco de Chile: cargando...');
   const first = await fetch(`${BASE}?page=1&per_page=100`).then(r => {
     if (!r.ok) throw new Error(`BancoChile API: HTTP ${r.status}`);
     return r.json();
@@ -695,7 +811,7 @@ async function fetchBancoChile(onProgress) {
     const results = await Promise.all(pages.map(p =>
       fetch(`${BASE}?page=${p}&per_page=100`)
         .then(r => r.json())
-        .then(d => { onProgress(p/totalPages, `Página ${p} de ${totalPages}`); return (d.entries||[]).map(mapBancoChileOffer); })
+        .then(d => { onProgress(p/totalPages, `Banco de Chile: pág ${p}`); return (d.entries||[]).map(mapBancoChileOffer); })
     ));
     results.forEach(r => { all = all.concat(r); });
   }
@@ -731,24 +847,19 @@ function mapBancoChileOffer(o) {
   const catParts = (m.category||'').split('/');
   const catKey   = catParts[1] || '';
   const categoria = BCH_CAT_MAP[catKey] || catKey.replace(/-/g,' ') || 'Beneficio';
-
   const days = Object.keys(BCH_DAY_MAP);
   const dias = (m.tags||[]).filter(t => days.includes(t)).map(t => BCH_DAY_MAP[t]);
   const recurrenceLabel = dias.includes('Todos los días') ? 'Todos los días' : '';
-
   const tipoBeneficio = (f['Tipo Beneficio']||'').trim();
   const pctMatch = tipoBeneficio.match(/(\d+)\s*%/);
   const descuento = pctMatch ? pctMatch[0].replace(/\s/g,'') : tipoBeneficio.split(';')[0].trim();
   const tipo = pctMatch ? 'DISCOUNT' : 'BENEFIT';
-
   const sitioWeb = (f['Url']||f['Sitio web']||f['Url Beneficio Externa']||'').trim();
   const rawAddresses = parseSucursalesBCH(f['Sucursales']||'');
   const isOnline = sitioWeb.length > 3 && rawAddresses.length === 0;
   const modalidad = isOnline ? 'Online' : 'Presencial';
-
   const descripcion = f['Extracto'] || stripHtml(f['Descripcion']||'').substring(0,140);
   const vigencia = f['Vigencia'] ? f['Vigencia'].replace(/Promoción válida\s*/i,'') : null;
-
   return {
     id: m.uuid, brand_name: f['Titulo']||m.name,
     nombre: f['Titulo']||m.name, subtitulo: descripcion,
@@ -763,56 +874,216 @@ function mapBancoChileOffer(o) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ESTADO DE LA APP
+// ESTADO
 // ══════════════════════════════════════════════════════════════════════════════
-let activeBank    = null;
-let beneficios    = [];
+let bancosSeleccionados = [];
+let currentUser = null;
+let beneficios  = [];
 let map, markerCluster;
-let activeFilters = { buscar:'', categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
+let activeFilters = { buscar:'', banco:[], categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
 let selectedId    = null;
 let userLat = null, userLng = null, userDotMarker = null;
 let carouselVisible = true;
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SELECCIÓN DE BANCO
+// FIRESTORE — PERFIL
 // ══════════════════════════════════════════════════════════════════════════════
-function selectBank(bankId) {
-  activeBank = BANK_CONFIGS[bankId];
-  applyTheme(activeBank);
-  document.getElementById('bank-select-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-  document.getElementById('loadingEmoji').textContent = activeBank.emoji;
-  document.getElementById('loadingTitle').textContent = activeBank.fullName;
-  document.getElementById('loadingSubtitle').textContent = 'Cargando beneficios...';
-  // Reset filtros
-  beneficios = []; activeFilters = { buscar:'', categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
-  selectedId = null;
-  document.getElementById('filterCategoria').innerHTML = '<option value="">Todas las categorías</option>';
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  document.getElementById('filterBuscar').value = '';
-  initApp();
+async function cargarPerfil(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'usuarios', uid));
+    return snap.exists() ? snap.data() : null;
+  } catch(e) { return null; }
 }
 
-function cambiarBanco() {
-  // Ocultar app
+async function guardarPerfil(uid, bancosIds) {
+  try {
+    await setDoc(doc(db, 'usuarios', uid), {
+      uid,
+      nombre:    currentUser.displayName || '',
+      email:     currentUser.email || '',
+      foto_url:  currentUser.photoURL || '',
+      bancos_preferidos: bancosIds,
+      updated_at: new Date()
+    }, { merge: true });
+  } catch(e) {
+    showToast('Error al guardar preferencias', true);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTH UI
+// ══════════════════════════════════════════════════════════════════════════════
+async function loginConGoogle() {
+  try {
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged handles the rest
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') {
+      showToast('Error al iniciar sesión: ' + (e.message||''), true);
+    }
+  }
+}
+
+async function logoutUser() {
+  await signOut(auth);
+  bancosSeleccionados = [];
+  beneficios = [];
+  closeProfile();
+  mostrarSeleccionBancos();
   ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList','btnMyLocation'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   if (markerCluster) markerCluster.clearLayers();
-  document.getElementById('bank-select-screen').style.display = 'flex';
+  closeMarkerPanel();
 }
 
-function applyTheme(bank) {
-  const r = document.documentElement.style;
-  r.setProperty('--primary',       bank.primary);
-  r.setProperty('--primary-dark',  bank.primaryDark);
-  r.setProperty('--primary-light', bank.primaryLight);
-  r.setProperty('--badge-dcto-bg', bank.badgeDcto);
-  document.getElementById('headerLogo').innerHTML = bank.logoHtml;
+function actualizarBtnUsuario(user) {
+  const btn = document.getElementById('btnUser');
+  if (!btn) return;
+  if (user && user.photoURL) {
+    btn.innerHTML = `<img src="${escAttr(user.photoURL)}" alt="perfil">`;
+  } else if (user) {
+    btn.textContent = (user.displayName||'U')[0].toUpperCase();
+  } else {
+    btn.textContent = '👤';
+  }
+}
+
+function toggleProfile() {
+  const panel = document.getElementById('profilePanel');
+  if (panel.classList.contains('open')) {
+    closeProfile();
+  } else {
+    renderProfilePanel();
+    panel.classList.add('open');
+    document.getElementById('profileOverlay').classList.add('open');
+  }
+}
+
+function closeProfile() {
+  document.getElementById('profilePanel').classList.remove('open');
+  document.getElementById('profileOverlay').classList.remove('open');
+}
+
+function renderProfilePanel() {
+  const content = document.getElementById('profileContent');
+  if (!currentUser) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:20px">
+        <div style="font-size:48px;margin-bottom:12px">👤</div>
+        <div style="font-size:16px;font-weight:800;margin-bottom:8px">Sin sesión activa</div>
+        <p style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.5">Inicia sesión para guardar tus bancos favoritos y cargarlos automáticamente</p>
+        <button onclick="closeProfile();mostrarLogin()" style="background:var(--primary);color:#fff;border:none;border-radius:12px;padding:12px 24px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;width:100%">Iniciar sesión con Google</button>
+      </div>`;
+    return;
+  }
+  const banksHtml = ['bci','santander','bancochile'].map(id => {
+    const cfg = BANK_CONFIGS[id];
+    const checked = bancosSeleccionados.includes(id);
+    return `
+      <div class="profile-bank-item">
+        <input type="checkbox" id="profChk-${id}" ${checked ? 'checked' : ''}>
+        <div class="profile-bank-dot" style="background:${cfg.primary}"></div>
+        <label class="profile-bank-name" for="profChk-${id}">${cfg.fullName}</label>
+      </div>`;
+  }).join('');
+  const avatarHtml = currentUser.photoURL
+    ? `<img src="${escAttr(currentUser.photoURL)}" class="profile-avatar" onerror="this.style.display='none'">`
+    : `<div class="profile-avatar-fallback">${(currentUser.displayName||'U')[0].toUpperCase()}</div>`;
+  content.innerHTML = `
+    <div class="profile-header">
+      ${avatarHtml}
+      <div>
+        <div class="profile-name">${escAttr(currentUser.displayName||'Usuario')}</div>
+        <div class="profile-email">${escAttr(currentUser.email||'')}</div>
+      </div>
+    </div>
+    <div class="profile-section-title">Mis bancos preferidos</div>
+    <div class="profile-bank-checks">${banksHtml}</div>
+    <button class="btn-save-profile" onclick="guardarPreferencias()">Guardar y recargar mapa</button>
+    <button class="btn-logout" onclick="logoutUser()">Cerrar sesión</button>`;
+}
+
+async function guardarPreferencias() {
+  const newBancos = ['bci','santander','bancochile'].filter(id => {
+    const chk = document.getElementById('profChk-' + id);
+    return chk && chk.checked;
+  });
+  if (!newBancos.length) { showToast('Selecciona al menos un banco', true); return; }
+  if (currentUser) await guardarPerfil(currentUser.uid, newBancos);
+  closeProfile();
+  initApp(newBancos);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MAPA (init único)
+// SELECCIÓN DE BANCOS
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleBankCheck(bankId) {
+  const item = document.getElementById('bsItem-' + bankId);
+  const box  = document.getElementById('chkBox' + bankId.charAt(0).toUpperCase() + bankId.slice(1));
+  if (!item) return;
+  const isNowChecked = !item.classList.contains('checked');
+  item.classList.toggle('checked', isNowChecked);
+  if (box) box.textContent = isNowChecked ? '✓' : '';
+  updateCtaBtn();
+}
+
+function updateCtaBtn() {
+  const count = ['bci','santander','bancochile'].filter(id =>
+    document.getElementById('bsItem-' + id)?.classList.contains('checked')
+  ).length;
+  const btn = document.getElementById('bsCtaBtn');
+  btn.disabled = count === 0;
+  btn.textContent = count > 0 ? `Ver beneficios (${count})` : 'Ver beneficios';
+}
+
+async function confirmarSeleccionBancos() {
+  const selected = ['bci','santander','bancochile'].filter(id =>
+    document.getElementById('bsItem-' + id)?.classList.contains('checked')
+  );
+  if (!selected.length) return;
+  if (currentUser) await guardarPerfil(currentUser.uid, selected);
+  initApp(selected);
+}
+
+function mostrarSeleccionBancos() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('bank-select-screen').style.display = 'flex';
+  ['bci','santander','bancochile'].forEach(id => {
+    const item = document.getElementById('bsItem-' + id);
+    const box  = document.getElementById('chkBox' + id.charAt(0).toUpperCase() + id.slice(1));
+    const isSelected = bancosSeleccionados.includes(id);
+    if (item) item.classList.toggle('checked', isSelected);
+    if (box)  box.textContent = isSelected ? '✓' : '';
+  });
+  updateCtaBtn();
+}
+
+function mostrarLogin() {
+  document.getElementById('bank-select-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function applyTheme(bancosIds) {
+  const theme = bancosIds.length === 1 ? BANK_CONFIGS[bancosIds[0]] : MULTI_THEME;
+  const r = document.documentElement.style;
+  r.setProperty('--primary',       theme.primary);
+  r.setProperty('--primary-dark',  theme.primaryDark);
+  r.setProperty('--primary-light', theme.primaryLight);
+  r.setProperty('--badge-dcto-bg', theme.badgeDcto||'#2196F3');
+}
+
+function cambiarBanco() {
+  ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList','btnMyLocation'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  if (markerCluster) markerCluster.clearLayers();
+  closeMarkerPanel();
+  mostrarSeleccionBancos();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAPA
 // ══════════════════════════════════════════════════════════════════════════════
 map = L.map('map', { zoomControl:false, attributionControl:false }).setView([-33.45,-70.65], 12);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains:'abcd', maxZoom:20 }).addTo(map);
@@ -822,7 +1093,7 @@ map.addLayer(markerCluster);
 map.on('click', closeMarkerPanel);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GEOLOCALIZACIÓN Y DISTANCIA
+// GEOLOCALIZACIÓN
 // ══════════════════════════════════════════════════════════════════════════════
 function haversineKm(lat1,lng1,lat2,lng2) {
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -865,14 +1136,10 @@ function requestMyLocation() {
   btn.querySelector('span').textContent='⏳';
   showToast('Obteniendo ubicación...');
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      showUserDot(pos.coords.latitude, pos.coords.longitude);
-      showToast('📍 Ubicación obtenida');
-      render();
-    },
+    pos => { showUserDot(pos.coords.latitude, pos.coords.longitude); showToast('📍 Ubicación obtenida'); render(); },
     err => {
       btn.querySelector('span').textContent='📍';
-      const msgs={1:'Permiso denegado. Ve a Configuración del navegador → Privacidad → Ubicación y actívala para este sitio.',2:'No se pudo obtener la ubicación. Verifica tu GPS.',3:'Tiempo de espera agotado. Intenta nuevamente.'};
+      const msgs={1:'Permiso denegado. Ve a Configuración del navegador → Privacidad → Ubicación.',2:'No se pudo obtener la ubicación.',3:'Tiempo de espera agotado.'};
       showToast('❌ '+(msgs[err.code]||'Error al obtener ubicación'),true);
     },
     { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
@@ -891,17 +1158,14 @@ function requestUserLocation(onSuccess) {
   );
 }
 
-// Intento silencioso al cargar (solo si ya hay permiso previo)
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
     p => showUserDot(p.coords.latitude,p.coords.longitude),
-    ()=>{}, // silencioso — el botón lo pedirá explícitamente
+    ()=>{},
     { timeout:5000, maximumAge:300000 }
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ICONO MARCADOR
 // ══════════════════════════════════════════════════════════════════════════════
 // PANEL MARCADOR
 // ══════════════════════════════════════════════════════════════════════════════
@@ -913,9 +1177,9 @@ function showMarkerPanel(b, s) {
     logoWrap.innerHTML = `<div class="mp-logo-fallback">${b.icono}</div>`;
   }
   document.getElementById('mpName').textContent = s.nombre || b.nombre;
-  document.getElementById('mpCat').textContent = b.categoria;
+  document.getElementById('mpCat').textContent  = b.categoria;
   document.getElementById('mpAddr').textContent = s.direccion || '';
-  document.getElementById('mpBadge').innerHTML = `<span class="mp-badge">${escAttr(b.descuento)} ${getBadgeLabel(b.tipo)}</span>`;
+  document.getElementById('mpBadge').innerHTML  = `<span class="mp-badge">${escAttr(b.descuento)} ${getBadgeLabel(b.tipo)}</span>`;
   document.getElementById('mpDesc').textContent = b.descripcion;
   const tags = [
     ...b.dias.map(d=>`<span class="mp-tag" style="background:#E8F5E9;color:#2E7D32">${escAttr(d)}</span>`),
@@ -925,24 +1189,28 @@ function showMarkerPanel(b, s) {
   document.getElementById('mpTags').innerHTML = tags;
   document.getElementById('markerPanel').classList.add('open');
 }
+
 function closeMarkerPanel() {
   document.getElementById('markerPanel').classList.remove('open');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ICONO MARCADOR
+// ══════════════════════════════════════════════════════════════════════════════
 function createIcon(b) {
   const safe = escAttr(b.nombre.substring(0,14));
   const markerImg = b.logo || b.imagen;
+  const bankColor = b.bancoId ? (BANK_CONFIGS[b.bancoId]?.primary || '#003DA5') : '#003DA5';
   if (markerImg) return L.divIcon({ className:'custom-icon',
-    html:`<div class="marker-circle"><img src="${escAttr(markerImg)}" alt="${safe}" onerror="imgFallback(this,'${escAttr(b.icono)}')" /></div>`,
+    html:`<div class="marker-circle" style="border-color:${bankColor}"><img src="${escAttr(markerImg)}" alt="${safe}" onerror="imgFallback(this,'${escAttr(b.icono)}')" /></div>`,
     iconSize:[44,44], iconAnchor:[22,22] });
   return L.divIcon({ className:'custom-icon',
-    html:`<div class="marker-circle"><span class="marker-fallback">${b.icono}</span></div>`,
+    html:`<div class="marker-circle" style="border-color:${bankColor}"><span class="marker-fallback">${b.icono}</span></div>`,
     iconSize:[44,44], iconAnchor:[22,22] });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// OSM GEOCODING (Photon → Nominatim, cache 24h)
+// OSM GEOCODING
 // ══════════════════════════════════════════════════════════════════════════════
 let sucCache = {};
 const CACHE_KEY_PREFIX = 'beneficios_osm_v3_';
@@ -957,6 +1225,7 @@ function loadCache(bankId) {
     return parsed.data || {};
   } catch(e) { return {}; }
 }
+
 function saveCache(bankId) {
   try { localStorage.setItem(CACHE_KEY_PREFIX+bankId, JSON.stringify({ts:Date.now(),data:sucCache})); } catch(e) {}
 }
@@ -987,7 +1256,7 @@ function fetchSucursalesOSM(brandName, bounds) {
       const p=f.properties||{};
       locs.push({lat,lng,nombre:p.name||brandName,direccion:[p.street,p.housenumber].filter(Boolean).join(' ')||p.city||''});
     });
-    sucCache[ck]=locs; saveCache(activeBank?.name||'x'); return locs;
+    sucCache[ck]=locs; saveCache(bancosSeleccionados[0]||'cache'); return locs;
   }).catch(()=>fetchSucursalesNominatim(brandName,bounds));
 }
 
@@ -1006,7 +1275,7 @@ function fetchSucursalesNominatim(brandName, bounds) {
       if(seen[k]) return; seen[k]=1;
       locs.push({lat,lng,nombre:name,direccion:r.display_name.split(',').slice(1,3).join(',').trim()});
     });
-    sucCache[`${brandName}:nom`]=locs; saveCache(activeBank?.name||'x'); return locs;
+    sucCache[`${brandName}:nom`]=locs; saveCache(bancosSeleccionados[0]||'cache'); return locs;
   }).catch(()=>[]);
 }
 
@@ -1092,6 +1361,13 @@ document.getElementById('filterBuscar').addEventListener('input',e=>{
 document.getElementById('filterCategoria').addEventListener('change',e=>{
   activeFilters.categoria=e.target.value; render();
 });
+document.querySelectorAll('#filterBanco .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    chip.classList.toggle('active');
+    activeFilters.banco=[...document.querySelectorAll('#filterBanco .chip.active')].map(c=>c.dataset.banco);
+    render();
+  });
+});
 document.querySelectorAll('#filterDias .chip').forEach(chip=>{
   chip.addEventListener('click',()=>{
     chip.classList.toggle('active');
@@ -1139,6 +1415,7 @@ document.querySelectorAll('#filterDistancia .chip').forEach(chip=>{
 function filterBeneficios() {
   let result=beneficios.filter(b=>{
     if(b.modalidad==='Online') return false;
+    if(activeFilters.banco.length>0 && !activeFilters.banco.includes(b.bancoId)) return false;
     if(activeFilters.buscar){const q=activeFilters.buscar;if(!b.nombre.toLowerCase().includes(q)&&!(b.brand_name||'').toLowerCase().includes(q)&&!(b.subtitulo||'').toLowerCase().includes(q))return false;}
     if(activeFilters.categoria&&!b.categorias.includes(activeFilters.categoria))return false;
     if(activeFilters.dias.length>0&&!activeFilters.dias.some(d=>b.dias.includes(d)))return false;
@@ -1160,7 +1437,7 @@ function toggleFilters() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TOGGLE CAROUSEL
+// CAROUSEL
 // ══════════════════════════════════════════════════════════════════════════════
 function toggleCarousel() {
   carouselVisible=!carouselVisible;
@@ -1178,12 +1455,17 @@ function render() {
   const filtered=filterBeneficios();
   const totalPins=filtered.reduce((s,b)=>s+b.sucursales.length,0);
   document.getElementById('resultsCount').textContent=`${filtered.length} beneficios · ${totalPins} ubicaciones`;
+  const multiBank = bancosSeleccionados.length > 1;
 
   let html='';
   filtered.forEach(b=>{
     const isSel=selectedId===b.id;
     const diasLabel=b.recurrenceLabel||(b.dias.length?b.dias.join(', '):'');
     const closest=getClosestSucursal(b);
+    const bankColor = b.bancoId ? (BANK_CONFIGS[b.bancoId]?.primary||'#333') : '#333';
+    const bankTag = multiBank && b.bancoId
+      ? `<span class="tag tag-banco" style="background:${bankColor}">${BANK_CONFIGS[b.bancoId]?.name||b.bancoId}</span>`
+      : '';
     html+=`
       <div class="benefit-card ${isSel?'selected':''}" onclick="selectBenefit('${escAttr(b.id)}')" data-id="${escAttr(b.id)}">
         <div class="card-img-wrap">
@@ -1199,11 +1481,12 @@ function render() {
           <div class="card-name">${escAttr(b.nombre)}</div>
           <div class="card-desc">${escAttr(b.descripcion)}</div>
           <div class="card-tags">
+            ${bankTag}
             ${diasLabel?`<span class="tag tag-dia">${escAttr(diasLabel)}</span>`:''}
             <span class="tag tag-cat">${escAttr(b.categoria)}</span>
             ${closest
               ?`<span class="tag tag-loc">📍 ${b.sucursales.length} suc.</span><span class="tag tag-dist">🧭 ${formatDist(closest.distKm)}</span>`
-              :b.modalidad==='Online'?'<span class="tag tag-online">🌐 Online</span>':''}
+              :''}
             ${b.vigencia?`<span class="tag">${escAttr(b.vigencia)}</span>`:''}
           </div>
         </div>
@@ -1234,99 +1517,164 @@ function selectBenefit(id) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// INIT APP (llamado al seleccionar banco)
+// INIT APP
 // ══════════════════════════════════════════════════════════════════════════════
-async function initApp() {
-  const bar=document.getElementById('loadingBar');
-  const errBanner=document.getElementById('error-banner');
-  errBanner.classList.remove('show'); errBanner.textContent='';
-  sucCache = loadCache(activeBank.name);
-  try {
-    beneficios = await activeBank.fetchAll((pct, label) => {
-      bar.style.width=(pct*100)+'%';
-      document.getElementById('loadingMsg').textContent=label;
-    });
-    bar.style.width='100%';
+async function initApp(bancosIds) {
+  bancosSeleccionados = bancosIds;
+  applyTheme(bancosIds);
 
-    // Poblar select de categorías
-    const cats=[...new Set(beneficios.flatMap(b=>b.categorias))].sort();
-    const sel=document.getElementById('filterCategoria');
-    sel.innerHTML='<option value="">Todas las categorías</option>';
-    cats.forEach(c=>{const opt=document.createElement('option');opt.value=c;opt.textContent=c;sel.appendChild(opt);});
+  document.getElementById('bank-select-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('loadingEmoji').textContent = bancosIds.length === 1 ? BANK_CONFIGS[bancosIds[0]].emoji : '🏦';
+  document.getElementById('loadingTitle').textContent = bancosIds.length === 1
+    ? BANK_CONFIGS[bancosIds[0]].fullName
+    : bancosIds.length === 2 ? bancosIds.map(id => BANK_CONFIGS[id].name).join(' + ') : `${bancosIds.length} bancos`;
+  document.getElementById('loadingSubtitle').textContent = 'Cargando beneficios...';
 
-    // Header subtitle
-    const now=new Date();
-    document.getElementById('headerSub').textContent=
-      now.toLocaleDateString('es-CL',{month:'long',year:'numeric'})+' · '+beneficios.length+' beneficios';
+  beneficios = [];
+  activeFilters = { buscar:'', banco:[], categoria:'', dias:[], modalidad:[], tipo:[], distancia:null };
+  selectedId = null;
+  document.getElementById('filterCategoria').innerHTML = '<option value="">Todas las categorías</option>';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('filterBuscar').value = '';
 
-    // Mostrar UI
-    setTimeout(()=>{
-      const ls=document.getElementById('loading-screen');
-      ls.classList.add('fade-out');
-      setTimeout(()=>{
-        ls.style.display='none';
-        ls.classList.remove('fade-out');
-        bar.style.width='0%';
-        ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList'].forEach(id=>{
-          document.getElementById(id).style.display='';
-        });
-        // carouselToggle y cardList usan flex/block por defecto
-        document.getElementById('carouselToggle').style.display='flex';
-        document.getElementById('cardList').style.display='flex';
-        document.getElementById('btnMyLocation').style.display='flex';
-      },400);
-    },300);
+  sucCache = {};
+  bancosIds.forEach(id => { Object.assign(sucCache, loadCache(id)); });
 
-    render();
+  const bar = document.getElementById('loadingBar');
+  const errBanner = document.getElementById('error-banner');
+  errBanner.classList.remove('show'); errBanner.textContent = '';
 
-    // Geocodificación en background
-    const seen={};
-    let bchDelay = 0;
-    beneficios.forEach(b=>{
-      if (b.rawAddresses?.length) {
-        // Banco de Chile: geocodificar por dirección exacta con rate-limit de 1 req/s
-        b.rawAddresses.forEach(addr => {
-          const ck = `bch:${addr.street}:${addr.city}`.toLowerCase();
-          if (sucCache[ck]) { mergeSucursales(b,[sucCache[ck]]); return; }
-          bchDelay += 1100;
-          setTimeout(() => {
-            const q = `${addr.street}, ${addr.city}, Chile`;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cl&q=${encodeURIComponent(q)}`)
-              .then(r=>r.json()).then(res=>{
-                if (!res.length) return;
-                const loc = {lat:+res[0].lat, lng:+res[0].lon, nombre:b.nombre, direccion:`${addr.street}, ${addr.city}`};
-                if (!inChile(loc.lat,loc.lng)) return;
-                sucCache[ck]=loc; saveCache(activeBank?.name||'x');
-                mergeSucursales(b,[loc]); render();
-              }).catch(()=>{});
-          }, bchDelay);
-        });
-      } else {
-        // BCI / Santander: geocodificar por nombre de marca
-        if(!b.brand_name||seen[b.brand_name]) return; seen[b.brand_name]=1;
-        fetchSucursalesOSM(b.brand_name).then(locs=>{
-          beneficios.filter(x=>x.brand_name===b.brand_name).forEach(ben=>mergeSucursales(ben,locs));
-          render();
-        });
-      }
-    });
+  const perBankPct = {};
+  bancosIds.forEach(id => { perBankPct[id] = 0; });
 
-  } catch(err) {
-    console.error('[BeneficiosMap]',err);
+  function updateProgress() {
+    const total = Object.values(perBankPct).reduce((s,v)=>s+v,0) / bancosIds.length;
+    bar.style.width = (total*100)+'%';
+    const done = Object.values(perBankPct).filter(v=>v>=1).length;
+    document.getElementById('loadingMsg').textContent = `${done}/${bancosIds.length} bancos cargados`;
+  }
+
+  const fetchers = bancosIds.map(id =>
+    BANK_CONFIGS[id].fetchAll((pct) => { perBankPct[id]=pct; updateProgress(); })
+  );
+
+  const results = await Promise.allSettled(fetchers);
+
+  results.forEach((result, i) => {
+    const id = bancosIds[i];
+    if (result.status === 'fulfilled') {
+      result.value.forEach(b => { b.bancoId = id; });
+      beneficios = beneficios.concat(result.value);
+    } else {
+      showToast(`No se pudieron cargar beneficios de ${BANK_CONFIGS[id].name}`, true);
+    }
+  });
+
+  bar.style.width = '100%';
+
+  const cats = [...new Set(beneficios.flatMap(b=>b.categorias))].sort();
+  const sel = document.getElementById('filterCategoria');
+  sel.innerHTML = '<option value="">Todas las categorías</option>';
+  cats.forEach(c=>{ const opt=document.createElement('option');opt.value=c;opt.textContent=c;sel.appendChild(opt); });
+
+  const now = new Date();
+  const bankLabel = bancosIds.length===1 ? BANK_CONFIGS[bancosIds[0]].fullName
+    : bancosIds.length===2 ? bancosIds.map(id=>BANK_CONFIGS[id].name).join(' + ')
+    : `${bancosIds.length} bancos`;
+  document.getElementById('headerLogo').innerHTML = bancosIds.length===1
+    ? BANK_CONFIGS[bancosIds[0]].logoHtml
+    : `<span>${bankLabel}</span>`;
+  document.getElementById('headerSub').textContent =
+    now.toLocaleDateString('es-CL',{month:'long',year:'numeric'})+' · '+beneficios.length+' beneficios';
+
+  document.getElementById('filterBancoGroup').style.display = bancosIds.length > 1 ? 'block' : 'none';
+
+  setTimeout(()=>{
     const ls=document.getElementById('loading-screen');
     ls.classList.add('fade-out');
-    setTimeout(()=>{ls.style.display='none';ls.classList.remove('fade-out');},400);
-    errBanner.textContent='⚠️ '+err.message;
-    errBanner.classList.add('show');
-    ['mainHeader','searchFloat','areaBtn','carouselToggle','cardList'].forEach(id=>{
-      document.getElementById(id).style.display='';
-    });
-    document.getElementById('carouselToggle').style.display='flex';
-    document.getElementById('cardList').style.display='flex';
-    document.getElementById('btnMyLocation').style.display='flex';
-    render();
-  }
+    setTimeout(()=>{
+      ls.style.display='none'; ls.classList.remove('fade-out'); bar.style.width='0%';
+      ['mainHeader','searchFloat','areaBtn'].forEach(id=>{ document.getElementById(id).style.display=''; });
+      document.getElementById('carouselToggle').style.display='flex';
+      document.getElementById('cardList').style.display='flex';
+      document.getElementById('btnMyLocation').style.display='flex';
+    },400);
+  },300);
+
+  render();
+
+  const seen={};
+  let bchDelay=0;
+  beneficios.forEach(b=>{
+    if (b.rawAddresses?.length) {
+      b.rawAddresses.forEach(addr=>{
+        const ck=`bch:${addr.street}:${addr.city}`.toLowerCase();
+        if(sucCache[ck]){mergeSucursales(b,[sucCache[ck]]);return;}
+        bchDelay+=1100;
+        setTimeout(()=>{
+          const q=`${addr.street}, ${addr.city}, Chile`;
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cl&q=${encodeURIComponent(q)}`)
+            .then(r=>r.json()).then(res=>{
+              if(!res.length) return;
+              const loc={lat:+res[0].lat,lng:+res[0].lon,nombre:b.nombre,direccion:`${addr.street}, ${addr.city}`};
+              if(!inChile(loc.lat,loc.lng)) return;
+              sucCache[ck]=loc; saveCache(b.bancoId||'bancochile');
+              mergeSucursales(b,[loc]); render();
+            }).catch(()=>{});
+        },bchDelay);
+      });
+    } else {
+      if(!b.brand_name||seen[b.brand_name]) return; seen[b.brand_name]=1;
+      fetchSucursalesOSM(b.brand_name).then(locs=>{
+        beneficios.filter(x=>x.brand_name===b.brand_name).forEach(ben=>mergeSucursales(ben,locs));
+        render();
+      });
+    }
+  });
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIREBASE AUTH STATE
+// ══════════════════════════════════════════════════════════════════════════════
+onAuthStateChanged(auth, async user => {
+  currentUser = user;
+  actualizarBtnUsuario(user);
+  if (user) {
+    const perfil = await cargarPerfil(user.uid);
+    if (perfil && perfil.bancos_preferidos?.length) {
+      initApp(perfil.bancos_preferidos);
+    } else {
+      mostrarSeleccionBancos();
+    }
+  } else {
+    if (beneficios.length === 0) mostrarSeleccionBancos();
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPONER AL WINDOW (necesario con type="module")
+// ══════════════════════════════════════════════════════════════════════════════
+window.toggleBankCheck         = toggleBankCheck;
+window.confirmarSeleccionBancos = confirmarSeleccionBancos;
+window.mostrarLogin            = mostrarLogin;
+window.mostrarSeleccionBancos  = mostrarSeleccionBancos;
+window.loginConGoogle          = loginConGoogle;
+window.logoutUser              = logoutUser;
+window.toggleProfile           = toggleProfile;
+window.closeProfile            = closeProfile;
+window.guardarPreferencias     = guardarPreferencias;
+window.cambiarBanco            = cambiarBanco;
+window.toggleFilters           = toggleFilters;
+window.toggleCarousel          = toggleCarousel;
+window.selectBenefit           = selectBenefit;
+window.closeMarkerPanel        = closeMarkerPanel;
+window.toggleAddrSearch        = toggleAddrSearch;
+window.selectAddress           = selectAddress;
+window.searchInVisibleArea     = searchInVisibleArea;
+window.requestMyLocation       = requestMyLocation;
+window.imgFallback             = imgFallback;
 </script>
 </body>
 </html>
