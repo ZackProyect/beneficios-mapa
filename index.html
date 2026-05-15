@@ -792,10 +792,6 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
   from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc }
   from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-import { getAnalytics, logEvent }
-  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
-import { onLCP, onCLS, onINP, onTTFB }
-  from 'https://unpkg.com/web-vitals@4/dist/web-vitals.attribution.js?module';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE
@@ -814,11 +810,13 @@ const auth     = getAuth(fbApp);
 const db       = getFirestore(fbApp);
 const provider = new GoogleAuthProvider();
 
-// ── FIREBASE ANALYTICS ───────────────────────────────────────────────────────
-// Para activar: Firebase Console → Analytics → Enable → agrega measurementId (G-XXXXXXXXX) al firebaseConfig
+// ── FIREBASE ANALYTICS (carga en segundo plano, no bloquea el módulo) ────────
 let analytics = null;
-try { analytics = getAnalytics(fbApp); } catch(e) {}
-const track = (name, params) => { try { if (analytics) logEvent(analytics, name, params); } catch(e) {} };
+let _logEvent  = null;
+import("https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js")
+  .then(m => { analytics = m.getAnalytics(fbApp); _logEvent = m.logEvent; })
+  .catch(() => {});
+const track = (name, params) => { try { if (analytics && _logEvent) _logEvent(analytics, name, params); } catch(e) {} };
 
 // ── SENTRY ───────────────────────────────────────────────────────────────────
 // Inicializado automáticamente por el Loader Script en <head>
@@ -2003,10 +2001,14 @@ window.searchInVisibleArea     = searchInVisibleArea;
 window.requestMyLocation       = requestMyLocation;
 window.imgFallback             = imgFallback;
 
-// ── WEB VITALS → Firebase Analytics ──────────────────────────────────────────
-const sendVital = ({ name, value, rating }) =>
-  track('web_vital', { metric_name: name, metric_value: Math.round(value), metric_rating: rating });
-onLCP(sendVital); onCLS(sendVital); onINP(sendVital); onTTFB(sendVital);
+// ── WEB VITALS → Firebase Analytics (carga en segundo plano) ─────────────────
+import('https://unpkg.com/web-vitals@4/dist/web-vitals.attribution.js?module')
+  .then(({ onLCP, onCLS, onINP, onTTFB }) => {
+    const sendVital = ({ name, value, rating }) =>
+      track('web_vital', { metric_name: name, metric_value: Math.round(value), metric_rating: rating });
+    onLCP(sendVital); onCLS(sendVital); onINP(sendVital); onTTFB(sendVital);
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>
