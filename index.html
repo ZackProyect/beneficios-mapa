@@ -510,6 +510,8 @@
     }
     #error-banner.show{display:block}
   </style>
+  <!-- Sentry (error monitoring) — CDN clásico, carga antes del módulo JS -->
+  <script src="https://browser.sentry-cdn.com/8.54.0/bundle.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -790,6 +792,10 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
   from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc }
   from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import { getAnalytics, logEvent }
+  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+import { onLCP, onCLS, onINP, onTTFB }
+  from 'https://unpkg.com/web-vitals@4/dist/web-vitals.attribution.js?module';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE
@@ -800,12 +806,30 @@ const firebaseConfig = {
   projectId:         "mymapbenefits",
   storageBucket:     "mymapbenefits.firebasestorage.app",
   messagingSenderId: "28828746617",
-  appId:             "1:28828746617:web:af69138c0b0858a778e5a8"
+  appId:             "1:28828746617:web:af69138c0b0858a778e5a8",
+  measurementId:     "G-9GR5J13Z9S"
 };
 const fbApp    = initializeApp(firebaseConfig);
 const auth     = getAuth(fbApp);
 const db       = getFirestore(fbApp);
 const provider = new GoogleAuthProvider();
+
+// ── FIREBASE ANALYTICS ───────────────────────────────────────────────────────
+// Para activar: Firebase Console → Analytics → Enable → agrega measurementId (G-XXXXXXXXX) al firebaseConfig
+let analytics = null;
+try { analytics = getAnalytics(fbApp); } catch(e) {}
+const track = (name, params) => { try { if (analytics) logEvent(analytics, name, params); } catch(e) {} };
+
+// ── SENTRY ───────────────────────────────────────────────────────────────────
+// Crea proyecto en sentry.io → New Project → Browser JS → copia el DSN aquí
+const SENTRY_DSN = 'REEMPLAZAR_CON_DSN_DE_SENTRY';
+if (typeof Sentry !== 'undefined' && SENTRY_DSN !== 'REEMPLAZAR_CON_DSN_DE_SENTRY') {
+  Sentry.init({ dsn: SENTRY_DSN, environment: 'production' });
+}
+const sentryCapture = (err, bankId) => {
+  if (typeof Sentry === 'undefined' || SENTRY_DSN === 'REEMPLAZAR_CON_DSN_DE_SENTRY') return;
+  Sentry.withScope(scope => { scope.setTag('bank_id', bankId); Sentry.captureException(err); });
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIGURACIÓN DE BANCOS
@@ -875,25 +899,31 @@ const DAYS_MAP = {
 // ADAPTADOR BCI
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchBCI(onProgress) {
-  const BASE = 'https://api.bciplus.cl/bff-loyalty-beneficios/v1/offers';
-  const HDRS = BANK_CONFIGS.bci.apiHeaders;
-  const first = await fetch(`${BASE}?itemsPorPagina=100&pagina=1`, { headers: HDRS }).then(r => {
-    if (!r.ok) throw new Error(`BCI API: HTTP ${r.status}`);
-    return r.json();
-  });
-  const totalPages = first.paginado?.totalPaginas || 1;
-  onProgress(1/totalPages, `BCI: página 1 de ${totalPages}`);
-  let all = first.ofertas.map(mapBCIOffer);
-  if (totalPages > 1) {
-    const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
-    const results = await Promise.all(pages.map(p =>
-      fetch(`${BASE}?itemsPorPagina=100&pagina=${p}`, { headers: HDRS })
-        .then(r => r.json())
-        .then(d => { onProgress(p/totalPages, `BCI: página ${p} de ${totalPages}`); return d.ofertas.map(mapBCIOffer); })
-    ));
-    results.forEach(r => { all = all.concat(r); });
+  try {
+    const BASE = 'https://api.bciplus.cl/bff-loyalty-beneficios/v1/offers';
+    const HDRS = BANK_CONFIGS.bci.apiHeaders;
+    const first = await fetch(`${BASE}?itemsPorPagina=100&pagina=1`, { headers: HDRS }).then(r => {
+      if (!r.ok) throw new Error(`BCI API: HTTP ${r.status}`);
+      return r.json();
+    });
+    const totalPages = first.paginado?.totalPaginas || 1;
+    onProgress(1/totalPages, `BCI: página 1 de ${totalPages}`);
+    let all = first.ofertas.map(mapBCIOffer);
+    if (totalPages > 1) {
+      const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
+      const results = await Promise.all(pages.map(p =>
+        fetch(`${BASE}?itemsPorPagina=100&pagina=${p}`, { headers: HDRS })
+          .then(r => r.json())
+          .then(d => { onProgress(p/totalPages, `BCI: página ${p} de ${totalPages}`); return d.ofertas.map(mapBCIOffer); })
+      ));
+      results.forEach(r => { all = all.concat(r); });
+    }
+    return all;
+  } catch (err) {
+    sentryCapture(err, 'bci');
+    track('api_error', { bank_id: 'bci', error_code: err.message?.substring(0, 50) });
+    throw err;
   }
-  return all;
 }
 
 function mapBCIOffer(o) {
@@ -929,16 +959,22 @@ function cleanBrand(name) {
 // ADAPTADOR SANTANDER
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchSantander(onProgress) {
-  const URL = 'https://banco.santander.cl/beneficios/promociones.json?per_page=9999&tags=home-disfrutadores&custom_fields=true&order_by=updated_at&desc=true&hash=151';
-  onProgress(0.3, 'Santander: cargando promociones...');
-  const data = await fetch(URL).then(r => {
-    if (!r.ok) throw new Error(`Santander API: HTTP ${r.status}. Visita banco.santander.cl primero e intenta nuevamente.`);
-    return r.json();
-  });
-  onProgress(0.8, 'Santander: procesando...');
-  const result = (data.promociones || []).map(mapSantanderOffer);
-  onProgress(1, 'Santander: listo');
-  return result;
+  try {
+    const URL = 'https://banco.santander.cl/beneficios/promociones.json?per_page=9999&tags=home-disfrutadores&custom_fields=true&order_by=updated_at&desc=true&hash=151';
+    onProgress(0.3, 'Santander: cargando promociones...');
+    const data = await fetch(URL).then(r => {
+      if (!r.ok) throw new Error(`Santander API: HTTP ${r.status}. Visita banco.santander.cl primero e intenta nuevamente.`);
+      return r.json();
+    });
+    onProgress(0.8, 'Santander: procesando...');
+    const result = (data.promociones || []).map(mapSantanderOffer);
+    onProgress(1, 'Santander: listo');
+    return result;
+  } catch (err) {
+    sentryCapture(err, 'santander');
+    track('api_error', { bank_id: 'santander', error_code: err.message?.substring(0, 50) });
+    throw err;
+  }
 }
 
 const SANT_CAT_MAP = {
@@ -997,24 +1033,30 @@ function mapSantanderOffer(p) {
 // ADAPTADOR BANCO DE CHILE
 // ══════════════════════════════════════════════════════════════════════════════
 async function fetchBancoChile(onProgress) {
-  const BASE = 'https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types/beneficios/entries';
-  onProgress(0.1, 'Banco de Chile: cargando...');
-  const first = await fetch(`${BASE}?page=1&per_page=100`).then(r => {
-    if (!r.ok) throw new Error(`BancoChile API: HTTP ${r.status}`);
-    return r.json();
-  });
-  const totalPages = first.meta?.total_pages || Math.ceil((first.meta?.total_entries||100) / 100) || 1;
-  let all = (first.entries||[]).map(mapBancoChileOffer);
-  if (totalPages > 1) {
-    const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
-    const results = await Promise.all(pages.map(p =>
-      fetch(`${BASE}?page=${p}&per_page=100`)
-        .then(r => r.json())
-        .then(d => { onProgress(p/totalPages, `Banco de Chile: pág ${p}`); return (d.entries||[]).map(mapBancoChileOffer); })
-    ));
-    results.forEach(r => { all = all.concat(r); });
+  try {
+    const BASE = 'https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types/beneficios/entries';
+    onProgress(0.1, 'Banco de Chile: cargando...');
+    const first = await fetch(`${BASE}?page=1&per_page=100`).then(r => {
+      if (!r.ok) throw new Error(`BancoChile API: HTTP ${r.status}`);
+      return r.json();
+    });
+    const totalPages = first.meta?.total_pages || Math.ceil((first.meta?.total_entries||100) / 100) || 1;
+    let all = (first.entries||[]).map(mapBancoChileOffer);
+    if (totalPages > 1) {
+      const pages = Array.from({length: totalPages-1}, (_,i) => i+2);
+      const results = await Promise.all(pages.map(p =>
+        fetch(`${BASE}?page=${p}&per_page=100`)
+          .then(r => r.json())
+          .then(d => { onProgress(p/totalPages, `Banco de Chile: pág ${p}`); return (d.entries||[]).map(mapBancoChileOffer); })
+      ));
+      results.forEach(r => { all = all.concat(r); });
+    }
+    return all;
+  } catch (err) {
+    sentryCapture(err, 'bancochile');
+    track('api_error', { bank_id: 'bancochile', error_code: err.message?.substring(0, 50) });
+    throw err;
   }
-  return all;
 }
 
 const BCH_CAT_MAP = {
@@ -1857,6 +1899,7 @@ async function initApp(bancosIds) {
       showToast(`No se pudieron cargar beneficios de ${BANK_CONFIGS[id].name}`, true);
     }
   });
+  track('banks_loaded', { banks: bancosIds.join(','), count: bancosIds.length, total_benefits: beneficios.length });
 
   bar.style.width = '100%';
 
@@ -1929,6 +1972,7 @@ async function initApp(bancosIds) {
 onAuthStateChanged(auth, async user => {
   currentUser = user;
   actualizarBtnUsuario(user);
+  if (typeof Sentry !== 'undefined') Sentry.setUser(user ? { id: user.uid, email: user.email } : null);
   if (user) {
     const perfil = await cargarPerfil(user.uid);
     if (perfil && perfil.bancos_preferidos?.length) {
@@ -1962,6 +2006,11 @@ window.switchTab               = switchTab;
 window.searchInVisibleArea     = searchInVisibleArea;
 window.requestMyLocation       = requestMyLocation;
 window.imgFallback             = imgFallback;
+
+// ── WEB VITALS → Firebase Analytics ──────────────────────────────────────────
+const sendVital = ({ name, value, rating }) =>
+  track('web_vital', { metric_name: name, metric_value: Math.round(value), metric_rating: rating });
+onLCP(sendVital); onCLS(sendVital); onINP(sendVital); onTTFB(sendVital);
 </script>
 </body>
 </html>
