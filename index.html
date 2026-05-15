@@ -510,8 +510,8 @@
     }
     #error-banner.show{display:block}
   </style>
-  <!-- Sentry (error monitoring) — CDN clásico, carga antes del módulo JS -->
-  <script src="https://browser.sentry-cdn.com/8.54.0/bundle.min.js" crossorigin="anonymous"></script>
+  <!-- Sentry (error monitoring) — Loader Script con DSN embebido -->
+  <script src="https://js.sentry-cdn.com/cb59b834afa48d568f0aaa110f34ecff.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -821,13 +821,9 @@ try { analytics = getAnalytics(fbApp); } catch(e) {}
 const track = (name, params) => { try { if (analytics) logEvent(analytics, name, params); } catch(e) {} };
 
 // ── SENTRY ───────────────────────────────────────────────────────────────────
-// Crea proyecto en sentry.io → New Project → Browser JS → copia el DSN aquí
-const SENTRY_DSN = 'REEMPLAZAR_CON_DSN_DE_SENTRY';
-if (typeof Sentry !== 'undefined' && SENTRY_DSN !== 'REEMPLAZAR_CON_DSN_DE_SENTRY') {
-  Sentry.init({ dsn: SENTRY_DSN, environment: 'production' });
-}
+// Inicializado automáticamente por el Loader Script en <head>
 const sentryCapture = (err, bankId) => {
-  if (typeof Sentry === 'undefined' || SENTRY_DSN === 'REEMPLAZAR_CON_DSN_DE_SENTRY') return;
+  if (typeof Sentry === 'undefined') return;
   Sentry.withScope(scope => { scope.setTag('bank_id', bankId); Sentry.captureException(err); });
 };
 
